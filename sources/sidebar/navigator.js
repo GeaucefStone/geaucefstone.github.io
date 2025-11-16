@@ -10,15 +10,32 @@ document.addEventListener('DOMContentLoaded', function() {
     if (dropdownToggle && dropdownMenu) {
         dropdownToggle.addEventListener('click', function(e) {
             e.preventDefault();
+            e.stopPropagation(); // Prevent event from bubbling up
             this.classList.toggle('active');
             dropdownMenu.classList.toggle('active');
         });
+        
+        // Prevent dropdown menu clicks from closing the dropdown
+        dropdownMenu.addEventListener('click', function(e) {
+            e.stopPropagation(); // Prevent event from bubbling up
+        });
     }
+    
+    // Close dropdown when clicking outside of it
+    document.addEventListener('click', function(e) {
+        if (dropdownToggle && dropdownMenu) {
+            const isClickInsideDropdown = dropdownToggle.contains(e.target) || dropdownMenu.contains(e.target);
+            if (!isClickInsideDropdown) {
+                dropdownToggle.classList.remove('active');
+                dropdownMenu.classList.remove('active');
+            }
+        }
+    });
     
     // Set up sidebar click handlers for all links (including dropdown items)
     document.querySelectorAll('.sidebar-menu a').forEach(link => {
         link.addEventListener('click', function(e) {
-            // Don't prevent default for dropdown toggle
+            // Don't prevent default for dropdown toggle (already handled above)
             if (this.classList.contains('dropdown-toggle')) {
                 return;
             }
@@ -46,6 +63,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     const dropdownToggle = parentDropdown.querySelector('.dropdown-toggle');
                     if (dropdownToggle) {
                         dropdownToggle.classList.add('active');
+                    }
+                }
+                
+                // Close mobile sidebar if on mobile
+                if (window.innerWidth <= 768) {
+                    const sidebar = document.getElementById('sidebar');
+                    const sidebarOverlay = document.getElementById('sidebar-overlay');
+                    if (sidebar && sidebarOverlay) {
+                        sidebar.classList.remove('mobile-open');
+                        sidebarOverlay.classList.remove('active');
                     }
                 }
             }
