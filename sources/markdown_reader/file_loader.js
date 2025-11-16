@@ -1,6 +1,7 @@
 // File Loader for Markdown Documents
 const documentRegistry = {
     'constitution': 'https://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/main/contents/01B_constitution.md',
+    'poetic_justice': 'https://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/refs/heads/main/contents/education/textbook/00_analysis-flexible_sentencing.md',
 };
 
 // Load a specific document by ID
