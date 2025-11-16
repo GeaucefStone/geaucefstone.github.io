@@ -19,6 +19,16 @@ const documentRegistry = {
     'workers_branch': 'https://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/refs/heads/main/contents/education/textbook/01O_analysis-workers_branch.md',
     'scientific_branch': 'https://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/refs/heads/main/contents/education/textbook/01N_analysis-citizens_branch.md', 
     'surgeon_court': 'https://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/refs/heads/main/contents/education/textbook/01Q_analysis-surgeon_court.md',
+    'historian_branch': 'https://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/refs/heads/main/contents/education/textbook/01R_analysis-historian_branch.md',
+    'historian_court': 'https://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/refs/heads/main/contents/education/textbook/01S_analysis-historian_court.md', 
+    'covert_ops': 'https://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/refs/heads/main/contents/education/textbook/01T_analysis-covert_ops.md', 
+    'conspiracy_framework': 'https://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/refs/heads/main/contents/education/textbook/01U_analysis-conspiracy_framework.md', 
+    'financial_conflicts': 'https://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/refs/heads/main/contents/education/textbook/01V_analysis-financial_conflicts.md', 
+    'substance_over_form': 'https://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/refs/heads/main/contents/education/textbook/01W_analysis-substance_over_form.md', 
+    'poisoned_chalice_provision': 'https://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/refs/heads/main/contents/education/textbook/01X_analysis-poisoned_chalice_provision.md', 
+    'anti_corruption_architecture': 'https://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/refs/heads/main/contents/education/textbook/01Y_anti_corruption_architecture.md', 
+    'civil_war_crimes': 'https://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/refs/heads/main/contents/education/textbook/01Z_analysis-civil_war_crimes.md', 
+    'retained_sovereignty': 'https://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/refs/heads/main/contents/education/textbook/02A_analysis-retained_sovereignty.md', 
 };
 
 // Load a specific document by ID
