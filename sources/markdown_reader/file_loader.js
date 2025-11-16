@@ -13,6 +13,12 @@ const documentRegistry = {
     'womens_autonomy': 'https://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/refs/heads/main/contents/education/textbook/01I_analysis-womens_autonomy.md', 
     'coerced_marriage': 'https://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/refs/heads/main/contents/education/textbook/01J_analysis-coerced_marriage.md',
     'no_fault_divorce': 'https://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/refs/heads/main/contents/education/textbook/01K_analysis-no_fault_divorce.md',
+    'romeo_and_juliet': 'https://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/refs/heads/main/contents/education/textbook/01L_analysis-romeo_and_juliet.md',
+    'safe_emancipation_of_minors': 'https://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/refs/heads/main/contents/education/textbook/01L_analysis-romehttps://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/refs/heads/main/contents/education/textbook/01L_analysis-romeohttps://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/refs/heads/main/contents/education/textbook/01L_analysis-romehttps://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/refs/heads/main/contents/education/textbook/01L_analysis-romeo_and_juliet.mdo_and_juliet.md_and_juliet.mdo_and_juliet.md',
+    'citizens_branch': 'https://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/refs/heads/main/contents/education/textbook/01N_analysis-citizens_branch.md',
+    'workers_branch': 'https://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/refs/heads/main/contents/education/textbook/01O_analysis-workers_branch.md',
+    'scientific_branch': 'https://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/refs/heads/main/contents/education/textbook/01N_analysis-citizens_branch.md', 
+    'surgeon_court': 'https://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/refs/heads/main/contents/education/textbook/01Q_analysis-surgeon_court.md',
 };
 
 // Load a specific document by ID
