@@ -7,8 +7,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
     const sidebar = document.getElementById('sidebar');
     const sidebarOverlay = document.getElementById('sidebar-overlay');
-    const dropdownToggle = document.querySelector('.dropdown-toggle');
-    const dropdownMenu = document.querySelector('.dropdown-menu');
+    const dropdownToggles = document.querySelectorAll('.dropdown-toggle');
+    const dropdownMenus = document.querySelectorAll('.dropdown-menu');
     
     // Mobile sidebar toggle
     if (mobileMenuToggle && sidebar) {
@@ -24,34 +24,56 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Dropdown functionality
-    if (dropdownToggle && dropdownMenu) {
-        dropdownToggle.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            this.classList.toggle('active');
-            dropdownMenu.classList.toggle('active');
-        });
+    // Dropdown functionality for ALL dropdowns
+    dropdownToggles.forEach((dropdownToggle, index) => {
+        const dropdownMenu = dropdownMenus[index];
         
-        // Prevent dropdown menu clicks from closing the dropdown
-        dropdownMenu.addEventListener('click', function(e) {
-            e.stopPropagation();
-        });
-    }
-    
-    // Close dropdown when clicking outside of it
-    document.addEventListener('click', function(e) {
         if (dropdownToggle && dropdownMenu) {
-            const isClickInsideDropdown = dropdownToggle.contains(e.target) || dropdownMenu.contains(e.target);
-            if (!isClickInsideDropdown) {
-                dropdownToggle.classList.remove('active');
-                dropdownMenu.classList.remove('active');
-            }
+            dropdownToggle.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Close all other dropdowns
+                dropdownToggles.forEach((otherToggle, otherIndex) => {
+                    if (otherToggle !== this) {
+                        otherToggle.classList.remove('active');
+                        dropdownMenus[otherIndex].classList.remove('active');
+                    }
+                });
+                
+                // Toggle this dropdown
+                this.classList.toggle('active');
+                dropdownMenu.classList.toggle('active');
+            });
         }
     });
     
-    // Handle all document link clicks
-    document.querySelectorAll('.sidebar-menu a[href^="#"]').forEach(link => {
+    // Prevent dropdown menu clicks from closing the dropdowns
+    dropdownMenus.forEach(dropdownMenu => {
+        dropdownMenu.addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
+    });
+    
+    // Close dropdowns when clicking outside of them
+    document.addEventListener('click', function(e) {
+        let clickedOutsideAllDropdowns = true;
+        
+        dropdownToggles.forEach((dropdownToggle, index) => {
+            const dropdownMenu = dropdownMenus[index];
+            const isClickInsideDropdown = dropdownToggle.contains(e.target) || dropdownMenu.contains(e.target);
+            
+            if (isClickInsideDropdown) {
+                clickedOutsideAllDropdowns = false;
+            } else {
+                dropdownToggle.classList.remove('active');
+                dropdownMenu.classList.remove('active');
+            }
+        });
+    });
+    
+    // Set up sidebar click handlers for all links (including dropdown items)
+    document.querySelectorAll('.sidebar-menu a').forEach(link => {
         link.addEventListener('click', function(e) {
             // Handle dropdown toggle separately
             if (this.classList.contains('dropdown-toggle')) {
@@ -73,6 +95,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     const dropdownToggle = parentDropdown.querySelector('.dropdown-toggle');
                     if (dropdownToggle) {
                         dropdownToggle.classList.add('active');
+                        // Also open the dropdown menu
+                        const dropdownMenu = parentDropdown.querySelector('.dropdown-menu');
+                        if (dropdownMenu) {
+                            dropdownMenu.classList.add('active');
+                        }
                     }
                 }
                 
@@ -98,10 +125,14 @@ document.addEventListener('DOMContentLoaded', function() {
             // If active link is in dropdown, open the dropdown
             const parentDropdown = activeLink.closest('.dropdown-menu');
             if (parentDropdown) {
-                parentDropdown.classList.add('active');
-                const dropdownToggle = parentDropdown.previousElementSibling;
-                if (dropdownToggle && dropdownToggle.classList.contains('dropdown-toggle')) {
-                    dropdownToggle.classList.add('active');
+                const dropdown = parentDropdown.closest('.dropdown');
+                if (dropdown) {
+                    const dropdownToggle = dropdown.querySelector('.dropdown-toggle');
+                    const dropdownMenu = dropdown.querySelector('.dropdown-menu');
+                    if (dropdownToggle && dropdownMenu) {
+                        dropdownToggle.classList.add('active');
+                        dropdownMenu.classList.add('active');
+                    }
                 }
             }
         }
@@ -163,10 +194,14 @@ window.addEventListener('popstate', function() {
             // If active link is in dropdown, open the dropdown
             const parentDropdown = activeLink.closest('.dropdown-menu');
             if (parentDropdown) {
-                parentDropdown.classList.add('active');
-                const dropdownToggle = parentDropdown.previousElementSibling;
-                if (dropdownToggle && dropdownToggle.classList.contains('dropdown-toggle')) {
-                    dropdownToggle.classList.add('active');
+                const dropdown = parentDropdown.closest('.dropdown');
+                if (dropdown) {
+                    const dropdownToggle = dropdown.querySelector('.dropdown-toggle');
+                    const dropdownMenu = dropdown.querySelector('.dropdown-menu');
+                    if (dropdownToggle && dropdownMenu) {
+                        dropdownToggle.classList.add('active');
+                        dropdownMenu.classList.add('active');
+                    }
                 }
             }
         }
