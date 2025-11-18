@@ -31,6 +31,7 @@ const documentRegistry = {
     'anti_corruption_architecture': 'contents/education/textbook/01Y_anti_corruption_architecture.md', 
     'civil_war_crimes': 'contents/education/textbook/01Z_analysis-civil_war_crimes.md', 
     'retained_sovereignty': 'contents/education/textbook/02A_analysis-retained_sovereignty.md',
+
     // Case Study
     'highway_interceptor': 'contents/simulations/case_study/highway_interceptor_case.md',
     'hoa_vs_doe': 'contents/simulations/case_study/hoa_vs_doe.md',
@@ -41,7 +42,21 @@ const documentRegistry = {
     'thou_shalt_not_bear_false_witness': 'contents/simulations/case_study/thou_shalt_not_bear_false_witness.md',
     'tiptoeing_the_voice_activated_minefield': 'contents/simulations/case_study/tiptoeing_the_voice_activated_minefield.md', 
     'troll_kings_downfall': 'contents/simulations/case_study/troll_kings_downfall.md', 
-    
+
+    // Civil Acts
+    'holocaust_denial': 'contents/simulations/civil_acts/holocaust_denial.md',
+
+    // Scenarios
+    'atlas_dilemma': 'contents/simulations/scenarios/atlas_dilemma.md',
+    'landlords_gambit': 'contents/simulations/scenarios/landlords_gambit.md',
+    'nathaniels_dilemma': 'contents/simulations/scenarios/nathaniels_dilemma.md',
+    'quarantine_dilemma': 'contents/simulations/scenarios/quarantine_dilemma.md',
+    'sterling_dilemma': 'contents/simulations/scenarios/sterling_dilemma.md', 
+    'case_of_two_schools': 'contents/simulations/scenarios/the_case_of_two_schools.md',
+    'groves_defense': 'contents/simulations/scenarios/the_groves_defense.md', 
+    'mathematical_sentence': 'contents/simulations/scenarios/the_mathematical_sentence.md',
+    'secular_defense': 'contents/simulations/scenarios/the_secular_defense.md',
+
 };
 
 // Configuration - update these once if your repo changes
