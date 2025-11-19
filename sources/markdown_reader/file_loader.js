@@ -2,6 +2,13 @@
 const documentRegistry = {
     // Short IDs mapped to file paths (not full URLs)
     'constitution': 'contents/01B_constitution.md',
+
+    // Base System
+    'legal_dictionary': 'contents/01C_legal_dictionary.md',
+    'department_structure': 'contents/01D_department_structures.md',
+    'agency_structure': 'contents/01E_agency_structure.md',
+    'tax_structure': 'contents/01F_tax_structure.md',
+
     // Legal Framework and Governance
     'poetic_justice': 'contents/education/textbook/00_analysis-flexible_sentencing.md',
     'proxicide_doctrine': 'contents/education/textbook/01A_analysis-proxicide_doctrine.md',
