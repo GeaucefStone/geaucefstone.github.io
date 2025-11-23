@@ -37,6 +37,7 @@ const documentRegistry = {
     'conspiracy_framework': 'contents/education/textbook/01U_analysis-conspiracy_framework.md', 
     'financial_conflicts': 'contents/education/textbook/01V_analysis-financial_conflicts.md', 
     'substance_over_form': 'contents/education/textbook/01W_analysis-substance_over_form.md', 
+    'proportionate_fines': 'contents/education/textbook/01W0_analysis-proportionate_fines.md',
     'poisoned_chalice_provision': 'contents/education/textbook/01X_analysis-poisoned_chalice_provision.md', 
     'anti_corruption_architecture': 'contents/education/textbook/01Y_anti_corruption_architecture.md', 
     'civil_war_crimes': 'contents/education/textbook/01Z_analysis-civil_war_crimes.md', 
