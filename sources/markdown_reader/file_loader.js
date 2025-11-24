@@ -58,6 +58,7 @@ const documentRegistry = {
     'holocaust_denial': 'contents/simulations/civil_acts/holocaust_denial.md',
 
     // Scenarios
+    'anti_transphobic_showdown': 'contents/simulations/scenarios/anti_transphobic_showdown.md',
     'atlas_dilemma': 'contents/simulations/scenarios/atlas_dilemma.md',
     'landlords_gambit': 'contents/simulations/scenarios/landlords_gambit.md',
     'nathaniels_dilemma': 'contents/simulations/scenarios/nathaniels_dilemma.md',
