@@ -11,6 +11,10 @@ const documentRegistry = {
     'law_making_process': 'contents/01G_law_making_process.md',
     'governing_system': 'contents/01H_governing_system.md',
 
+    // Acts and Bills
+    'secure_systems_act': 'contents/acts/01A_secure_microkernel_systems_act.md',
+    'adult_freedom_guarantor_act': 'contents/acts/01B_adult_freedom_guarantor_act.md',
+
     // Legal Framework and Governance
     'poetic_justice': 'contents/education/textbook/00_analysis-flexible_sentencing.md',
     'proxicide_doctrine': 'contents/education/textbook/01A_analysis-proxicide_doctrine.md',
