@@ -11,6 +11,9 @@ const documentRegistry = {
     'law_making_process': 'contents/01G_law_making_process.md',
     'governing_system': 'contents/01H_governing_system.md',
 
+    // Penal Code
+    'criminal_cowardice': 'contents/penal_code/criminal_cowardice',
+
     // Acts and Bills
     'secure_systems_act': 'contents/acts/01A_secure_microkernel_systems_act.md',
     'adult_freedom_guarantor_act': 'contents/acts/01B_adult_freedom_guarantor_act.md',
