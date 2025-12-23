@@ -12,7 +12,7 @@ const documentRegistry = {
     'governing_system': 'contents/01H_governing_system.md',
 
     // Penal Code
-    'criminal_cowardice': 'contents/penal_code/criminal_cowardice',
+    'criminal_cowardice': 'contents/penal_code/criminal_cowardice.md',
 
     // Acts and Bills
     'secure_systems_act': 'contents/acts/01A_secure_microkernel_systems_act.md',
