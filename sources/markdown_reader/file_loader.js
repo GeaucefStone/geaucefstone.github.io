@@ -13,6 +13,8 @@ const documentRegistry = {
 
     // Penal Code
     'criminal_cowardice': 'contents/penal_code/criminal_cowardice.md',
+    'defense_and_liability': 'contents/penal_code/defense_and_liability.md',
+    'homicide': 'contents/penal_code/homicide.md',
 
     // Acts and Bills
     'secure_systems_act': 'contents/acts/01A_secure_microkernel_systems_act.md',
