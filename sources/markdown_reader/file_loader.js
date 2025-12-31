@@ -19,7 +19,7 @@ const documentRegistry = {
     // Acts and Bills
     'secure_systems_act': 'contents/acts/01A_secure_microkernel_systems_act.md',
     'adult_freedom_guarantor_act': 'contents/acts/01B_adult_freedom_guarantor_act.md',
-    'universtal_sanitary_infrastructure_act': 'contents/acts/01C_universal_sanitary_infrastructure_act.md',
+    'universtal_sanitary_infrastructure_act': 'contents/acts/01C_universal_sanitary_infrastructure.md',
     'hate_crime_enhancement_act': 'contents/acts/01D_hate_crime_enhancement_act.md',
     'hate_symbol_evidence_act': 'contents/acts/01E_hate_symbol_evidence_act.md',
     'social_compliance_act': 'contents/acts/01F_social_compliance.md', 
