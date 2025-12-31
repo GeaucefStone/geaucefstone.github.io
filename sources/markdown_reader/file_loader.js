@@ -23,7 +23,7 @@ const documentRegistry = {
     'hate_crime_enhancement_act': 'contents/acts/01D_hate_crime_enhancement_act.md',
     'hate_symbol_evidence_act': 'contents/acts/01E_hate_symbol_evidence_act.md',
     'social_compliance_act': 'contents/acts/01F_social_compliance.md', 
-    'antimal_testing_act': 'contents/acts/01G_animal_testing.md', 
+    'animal_testing_act': 'contents/acts/01G_animal_testing.md', 
     'military_age_cognition_act': 'contents/acts/01H_military_age_cognition_act.md',
 
     // Legal Framework and Governance
