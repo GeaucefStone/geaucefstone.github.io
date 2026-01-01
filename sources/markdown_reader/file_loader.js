@@ -25,6 +25,7 @@ const documentRegistry = {
     'social_compliance_act': 'contents/acts/01F_social_compliance.md', 
     'animal_testing_act': 'contents/acts/01G_animal_testing.md', 
     'military_age_cognition_act': 'contents/acts/01H_military_age_cognition_act.md',
+    'conversion_therapy_ban': 'contents/acts/0I1_conversion_therapy.md',
 
     // Legal Framework and Governance
     'poetic_justice': 'contents/education/textbook/00_analysis-flexible_sentencing.md',
