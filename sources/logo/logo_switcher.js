@@ -14,7 +14,7 @@
     // Configuration - update these paths to match your actual logo URLs
     const LOGO_CONFIG = {
         default: {
-            url: 'https://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/main/contents/images/phoenix.png',
+            url: 'https://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/main/contents/images/phoenix.svg',
             alt: 'Secular Democratic Republic Logo'
         },
         bhm: {
