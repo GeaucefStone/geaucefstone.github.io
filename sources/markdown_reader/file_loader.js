@@ -95,16 +95,19 @@ const PLATFORMS = {
         name: 'GitHub',
         baseUrl: 'https://raw.githubusercontent.com',
         urlTemplate: '{baseUrl}/{username}/{repository}/{branch}/{filePath}',
-        priority: 1
+        priority: 1,
+        needsCorsProxy: false
     },
     codeberg: {
         name: 'Codeberg',
         baseUrl: 'https://codeberg.org',
-        urlTemplate: '{baseUrl}/{username}/{repository}/raw/commit/{branch}/{filePath}',
-        priority: 2
+        urlTemplate: '{baseUrl}/{username}/{repository}/raw/branch/{branch}/{filePath}',
+        priority: 2,
+        needsCorsProxy: true
     }
 };
 
+// CORS Proxy configuration
 const CORS_PROXY = 'https://corsproxy.io/?';
 
 // Repository configuration
@@ -112,11 +115,12 @@ const REPO_CONFIG = {
     username: 'GeaucefStone',
     repository: 'Secular_Democratic_Republic',
     branch: 'main',
-    currentPlatform: 'Github', // Start with GitHub
+    currentPlatform: 'github', // Start with GitHub (always)
     failureCount: 0,
     maxFailuresBeforeSwitch: 3,
     isSwitching: false,
-    healthCheckCache: {}
+    healthCheckCache: {},
+    useCorsProxyForCodeberg: true
 };
 
 // Generate URL for a specific platform
@@ -134,10 +138,9 @@ function getPlatformUrl(platformKey, shortPath) {
         .replace('{branch}', REPO_CONFIG.branch)
         .replace('{filePath}', shortPath);
     
-    // Use CORS proxy for Codeberg
-    if (platformKey === 'codeberg') {
+    // Apply CORS proxy for platforms that need it
+    if (platform.needsCorsProxy && REPO_CONFIG.useCorsProxyForCodeberg) {
         url = CORS_PROXY + encodeURIComponent(url);
-        console.log('Using CORS proxy for Codeberg URL:', url);
     }
     
     return url;
@@ -248,7 +251,6 @@ function switchPlatform(newPlatform) {
 async function checkPlatformHealth(platformKey) {
     // Check cache first
     if (REPO_CONFIG.healthCheckCache[platformKey] !== undefined) {
-        console.log(`Using cached health check for ${platformKey}: ${REPO_CONFIG.healthCheckCache[platformKey] ? 'OK' : 'FAILED'}`);
         return REPO_CONFIG.healthCheckCache[platformKey];
     }
     
@@ -265,7 +267,7 @@ async function checkPlatformHealth(platformKey) {
         const timeoutId = setTimeout(() => controller.abort(), 5000);
         
         const response = await fetch(testUrl, { 
-            method: 'GET',
+            method: 'HEAD', // Use HEAD instead of GET to check availability without downloading content
             mode: 'cors',
             cache: 'no-cache',
             headers: { 
@@ -280,7 +282,7 @@ async function checkPlatformHealth(platformKey) {
         const isHealthy = response.ok;
         REPO_CONFIG.healthCheckCache[platformKey] = isHealthy;
         
-        console.log(`${platformKey} health: ${isHealthy ? 'OK' : 'FAILED'}`);
+        console.log(`${platformKey} health: ${isHealthy ? 'OK' : 'FAILED'} (${response.status})`);
         return isHealthy;
         
     } catch (error) {
@@ -290,45 +292,46 @@ async function checkPlatformHealth(platformKey) {
     }
 }
 
-// Initialize with health check
+// Initialize with health check - FIXED VERSION
 async function initializeLoader() {
     console.log('🚀 Initializing document loader with auto-failover...');
     
     // Clear cache
     REPO_CONFIG.healthCheckCache = {};
     
-    // Check all platforms
-    const platformHealth = {};
-    for (const platformKey of Object.keys(PLATFORMS)) {
-        platformHealth[platformKey] = await checkPlatformHealth(platformKey);
-    }
+    // Always start with GitHub as primary
+    REPO_CONFIG.currentPlatform = 'github';
+    REPO_CONFIG.failureCount = 0;
     
-    // Start with first healthy platform
-    const platformsInOrder = Object.keys(PLATFORMS);
-    let selectedPlatform = REPO_CONFIG.currentPlatform;
+    // Simple check: just verify we can load something from GitHub
+    console.log('Testing GitHub connection...');
+    const testUrl = getPlatformUrl('github', 'contents/01B_constitution.md');
     
-    for (const platformKey of platformsInOrder) {
-        if (platformHealth[platformKey]) {
-            selectedPlatform = platformKey;
-            break;
+    try {
+        const response = await fetch(testUrl, { 
+            method: 'GET',
+            mode: 'cors',
+            cache: 'no-cache'
+        });
+        
+        if (response.ok) {
+            console.log('✓ GitHub is accessible');
+            showNotification('Connected to GitHub', 'success');
+            return true;
+        } else {
+            console.log(`GitHub returned error: ${response.status}`);
+            // GitHub returned an error but might still be reachable
+            // We'll still start with GitHub but failover will kick in if needed
+            showNotification('Using GitHub (backup available)', 'info');
+            return true;
         }
+    } catch (error) {
+        console.log('GitHub connection failed:', error.message);
+        // GitHub completely failed, start with Codeberg
+        REPO_CONFIG.currentPlatform = 'codeberg';
+        showNotification('Using Codeberg backup', 'warning');
+        return true;
     }
-    
-    // Switch if needed
-    if (selectedPlatform !== REPO_CONFIG.currentPlatform) {
-        switchPlatform(selectedPlatform);
-    } else {
-        console.log(`✓ Using ${PLATFORMS[selectedPlatform].name} as primary source`);
-        showNotification(`Connected to ${PLATFORMS[selectedPlatform].name}`, 'success');
-    }
-    
-    // Set cache expiration (5 minutes)
-    setTimeout(() => {
-        REPO_CONFIG.healthCheckCache = {};
-        console.log('Health check cache cleared');
-    }, 5 * 60 * 1000);
-    
-    return true;
 }
 
 // Load document with auto-failover
@@ -399,6 +402,7 @@ async function loadDocument(docId, retryCount = 0) {
             const nextPlatform = getNextPlatform(platform);
             
             if (nextPlatform && nextPlatform !== platform) {
+                console.log(`Switching from ${platform} to ${nextPlatform} after ${REPO_CONFIG.failureCount} failures`);
                 showNotification(`Switching from ${platformName} due to failures`, 'warning');
                 
                 if (switchPlatform(nextPlatform)) {
