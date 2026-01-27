@@ -91,16 +91,16 @@ const documentRegistry = {
 
 // Platform configurations in priority order
 const PLATFORMS = {
-    codeberg: {
-        name: 'Codeberg',
-        baseUrl: 'https://codeberg.org',
-        urlTemplate: '{baseUrl}/{username}/{repository}/raw/branch/{branch}/{filePath}',
-        priority: 1
-    },
     github: {
         name: 'GitHub',
         baseUrl: 'https://raw.githubusercontent.com',
         urlTemplate: '{baseUrl}/{username}/{repository}/{branch}/{filePath}',
+        priority: 1
+    },
+    codeberg: {
+        name: 'Codeberg',
+        baseUrl: 'https://codeberg.org',
+        urlTemplate: '{baseUrl}/{username}/{repository}/raw/commit/{branch}/{filePath}',
         priority: 2
     }
 };
@@ -112,7 +112,7 @@ const REPO_CONFIG = {
     username: 'GeaucefStone',
     repository: 'Secular_Democratic_Republic',
     branch: 'main',
-    currentPlatform: 'codeberg', // lowercase only, start with gitHub
+    currentPlatform: 'Github', // Start with GitHub
     failureCount: 0,
     maxFailuresBeforeSwitch: 3,
     isSwitching: false,
