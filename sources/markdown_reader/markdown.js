@@ -1,4 +1,5 @@
 // Markdown Parser - Pure parsing functionality with media support
+// Universal loader function: loadMarkdownFromUrl() - works with any platform
 (function() {
     // Focus on bold, italic (underscores only), links, images, and videos
     function processBold(text) {
@@ -16,7 +17,6 @@
     // Process images: ![alt text](image-url)
     function processImages(text) {
         return text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, function(match, alt, src) {
-            // Handle different image types with appropriate styling
             const altText = alt || 'Image';
             return `<div class="markdown-image-container">
                 <img src="${src}" alt="${altText}" class="markdown-image" loading="lazy">
@@ -25,9 +25,8 @@
         });
     }
 
-    // Process videos: ![video alt](video-url) or ![VIDEO](video-url) convention
+    // Process videos: ![VIDEO](video-url) convention
     function processVideos(text) {
-        // Option 1: Using ![VIDEO](video-url) convention
         return text.replace(/!\[VIDEO\]\(([^)]+)\)/g, function(match, src) {
             const videoExt = src.split('.').pop().toLowerCase();
             const videoType = getVideoMimeType(videoExt);
@@ -62,7 +61,6 @@
     }
 
     function processInlineMarkdown(text) {
-        // Order matters: process videos first, then images, then links, then formatting
         let processed = processVideos(text);
         processed = processImages(processed);
         processed = processLinks(processed);
@@ -114,21 +112,27 @@
         return { html: html, newIndex: i - 1 };
     }
 
+    // Check if a line is a list item
+    function isListItem(line) {
+        const trimmed = line.trim();
+        return trimmed.startsWith('- ') || trimmed.startsWith('* ');
+    }
+
     // Main Markdown parsing function
     function parseMarkdown(md) {
-        let inSolidList = false;
-        let inHollowList = false;
         let lines = md.split('\n');
         let result = [];
+        let currentListType = null;
+        let inList = false;
         
         for (let i = 0; i < lines.length; i++) {
             let line = lines[i];
 
             // Check for table
-            if (line.trim().includes('|') && !line.trim().startsWith('-') && !line.trim().startsWith('*')) {
+            if (line.trim().includes('|') && !isListItem(line)) {
                 let tableLinesCount = 1;
                 for (let j = i + 1; j < lines.length; j++) {
-                    if (lines[j].trim().includes('|') && !lines[j].trim().startsWith('-') && !lines[j].trim().startsWith('*')) {
+                    if (lines[j].trim().includes('|') && !isListItem(lines[j])) {
                         tableLinesCount++;
                     } else {
                         break;
@@ -138,6 +142,12 @@
                 if (tableLinesCount >= 2) {
                     const tableResult = parseTable(lines, i);
                     if (tableResult.html) {
+                        if (inList) {
+                            result.push('</ul>');
+                            inList = false;
+                            currentListType = null;
+                        }
+                        
                         result.push(tableResult.html);
                         i = tableResult.newIndex;
                         continue;
@@ -145,67 +155,63 @@
                 }
             }
             
-            // Solid bullet list (-)
-            if (line.trim().startsWith('- ')) {
-                if (!inSolidList) {
-                    result.push('<ul style="list-style-type: disc;">');
-                    inSolidList = true;
-                }
-                let listContent = processInlineMarkdown(line.trim().substring(2));
-                result.push('<li>' + listContent + '</li>');
-            }
-            // Hollow bullet list (*)
-            else if (line.trim().startsWith('* ')) {
-                if (!inHollowList) {
-                    result.push('<ul style="list-style-type: circle;">');
-                    inHollowList = true;
-                }
-                let listContent = processInlineMarkdown(line.trim().substring(2));
-                result.push('<li>' + listContent + '</li>');
-            } 
-            else {
-                // Close any open lists
-                if (inSolidList) {
+            // Handle list items
+            if (isListItem(line)) {
+                const trimmed = line.trim();
+                const listType = trimmed.startsWith('- ') ? 'solid' : 'hollow';
+                const listContent = trimmed.substring(2);
+                
+                if (!inList) {
+                    const listStyle = listType === 'solid' ? 'disc' : 'circle';
+                    result.push(`<ul style="list-style-type: ${listStyle};">`);
+                    inList = true;
+                    currentListType = listType;
+                } else if (listType !== currentListType) {
                     result.push('</ul>');
-                    inSolidList = false;
-                }
-                if (inHollowList) {
-                    result.push('</ul>');
-                    inHollowList = false;
+                    const listStyle = listType === 'solid' ? 'disc' : 'circle';
+                    result.push(`<ul style="list-style-type: ${listStyle};">`);
+                    currentListType = listType;
                 }
                 
-                // Process non-list lines
-                if (line.trim()) {
-                    let processedLine = line.trim();
+                result.push('<li>' + processInlineMarkdown(listContent) + '</li>');
+                continue;
+            }
+            
+            // Non-list line - close any open list
+            if (inList) {
+                result.push('</ul>');
+                inList = false;
+                currentListType = null;
+            }
+            
+            // Process regular lines
+            if (line.trim()) {
+                let processedLine = line.trim();
 
-                    if (processedLine.startsWith('> ')) {
-                        processedLine = '<blockquote>' + processInlineMarkdown(processedLine.substring(2)) + '</blockquote>';
-                    } else if (processedLine.startsWith('# ')) {
-                        processedLine = '<h1>' + processInlineMarkdown(processedLine.substring(2)) + '</h1>';
-                    } else if (processedLine.startsWith('## ')) {
-                        processedLine = '<h2>' + processInlineMarkdown(processedLine.substring(3)) + '</h2>';
-                    } else if (processedLine.startsWith('### ')) {
-                        processedLine = '<h3>' + processInlineMarkdown(processedLine.substring(4)) + '</h3>';
-                    } else if (processedLine.startsWith('#### ')) {
-                        processedLine = '<h4>' + processInlineMarkdown(processedLine.substring(5)) + '</h4>';
-                    } else if (processedLine.startsWith('##### ')) {
-                        processedLine = '<h5>' + processInlineMarkdown(processedLine.substring(6)) + '</h5>';
-                    } else if (processedLine.startsWith('###### ')) {
-                        processedLine = '<h6>' + processInlineMarkdown(processedLine.substring(7)) + '</h6>';
-                    } else if (processedLine === '---') {
-                        processedLine = '<hr>';
-                    } else {
-                        processedLine = '<p>' + processInlineMarkdown(processedLine) + '</p>';
-                    }
-                    result.push(processedLine);
+                if (processedLine.startsWith('> ')) {
+                    processedLine = '<blockquote>' + processInlineMarkdown(processedLine.substring(2)) + '</blockquote>';
+                } else if (processedLine.startsWith('# ')) {
+                    processedLine = '<h1>' + processInlineMarkdown(processedLine.substring(2)) + '</h1>';
+                } else if (processedLine.startsWith('## ')) {
+                    processedLine = '<h2>' + processInlineMarkdown(processedLine.substring(3)) + '</h2>';
+                } else if (processedLine.startsWith('### ')) {
+                    processedLine = '<h3>' + processInlineMarkdown(processedLine.substring(4)) + '</h3>';
+                } else if (processedLine.startsWith('#### ')) {
+                    processedLine = '<h4>' + processInlineMarkdown(processedLine.substring(5)) + '</h4>';
+                } else if (processedLine.startsWith('##### ')) {
+                    processedLine = '<h5>' + processInlineMarkdown(processedLine.substring(6)) + '</h5>';
+                } else if (processedLine.startsWith('###### ')) {
+                    processedLine = '<h6>' + processInlineMarkdown(processedLine.substring(7)) + '</h6>';
+                } else if (processedLine === '---') {
+                    processedLine = '<hr>';
+                } else {
+                    processedLine = '<p>' + processInlineMarkdown(processedLine) + '</p>';
                 }
+                result.push(processedLine);
             }
         }
 
-        // Close any open lists
-        if (inSolidList) result.push('</ul>');
-        if (inHollowList) result.push('</ul>');
-
+        if (inList) result.push('</ul>');
         return result.join('\n');
     }
 
@@ -226,27 +232,18 @@
         video.volume = slider.value;
     };
 
-    // Export the loadMarkdownFromGitHub function for external use
-    // For switching between platforms, use these commented lines:
-    // GitHub: window.loadMarkdownFromGitHub = function(githubRawUrl) {
-    // Codeberg: window.loadMarkdownFromCodeberg = function(codebergRawUrl) {
-    // GitLab: window.loadMarkdownFromGitLab = function(gitlabRawUrl) {
-    
-    // Note: Only one platform function should be active at a time
-    // Make sure to update all references to the function name when switching
-    window.loadMarkdownFromGitHub = function(githubRawUrl) {
+    // Universal Markdown loader function - works with any platform's raw URL
+    window.loadMarkdownFromUrl = function(markdownUrl) {
         const output = document.getElementById('markdown-output');
         
         if (!output) {
             console.error('markdown-output element not found');
-            return;
+            return Promise.reject('markdown-output element not found');
         }
         
-        // Show loading state
-        // output.innerHTML = '<p style="text-align: center; color: #999;">Loading Markdown from Codeberg...</p>';
-        output.innerHTML = '<p style="text-align: center; color: #999;">Loading Markdown from Github...</p>';
+        output.innerHTML = '<p style="text-align: center; color: #999;">Loading document...</p>';
         
-        fetch(githubRawUrl)
+        return fetch(markdownUrl)
             .then(response => {
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -255,20 +252,26 @@
             })
             .then(markdownText => {
                 output.innerHTML = parseMarkdown(markdownText);
+                return true;
             })
             .catch(error => {
                 console.error('Error loading Markdown:', error);
                 output.innerHTML = `
                     <div style="text-align: center; color: #d63031;">
-                        <!-- <p>Failed to load Markdown from Codeberg</p> -->
-                        <p>Failed to load Markdown from GitHub</p>
+                        <p>Failed to load document</p>
                         <p><small>Error: ${error.message}</small></p>
-                        <p><a href="${githubRawUrl}" target="_blank" rel="noopener noreferrer" style="color: #7393B3;">Try opening the raw file directly</a></p>
+                        <p><a href="${markdownUrl}" target="_blank" rel="noopener noreferrer" style="color: #7393B3;">
+                            Try opening the raw file directly
+                        </a></p>
                     </div>
                 `;
+                throw error; // Re-throw for failover system
             });
     };
 
-    // Also export parseMarkdown in case it's needed elsewhere
+    // Backward compatibility alias
+    window.loadMarkdownFromGitHub = window.loadMarkdownFromUrl;
+
+    // Export parseMarkdown
     window.parseMarkdown = parseMarkdown;
 })();
