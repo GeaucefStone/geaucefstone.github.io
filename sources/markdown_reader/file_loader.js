@@ -1,4 +1,4 @@
-// File Loader for Markdown Documents with Multi-Platform Support
+// File Loader for Markdown Documents with Multi-Platform Support for Legal Document Repository
 const documentRegistry = {
     // Short IDs mapped to file paths (not full URLs)
     'constitution': 'contents/01B_constitution.md',
@@ -120,6 +120,9 @@ const REPO_CONFIG = {
     branch: 'main'
 };
 
+// Note: Changing platform only affects URL generation, not content loading
+// All platforms should have identical content mirrored
+
 // Generate full raw URL from short path
 function getFullRawUrl(shortPath) {
     const platform = PLATFORMS[REPO_CONFIG.platform];
@@ -184,6 +187,10 @@ function loadDocument(docId) {
     window.history.pushState(null, '', `#${docId}`);
     
     // Use your existing markdown loader
+    // Platform-specific function calls in loadDocument():
+    // For GitHub: loadMarkdownFromGitHub(fullUrl);
+    // For Codeberg: loadMarkdownFromCodeberg(fullUrl);
+    // For GitLab: loadMarkdownFromGitLab(fullUrl);
     loadMarkdownFromGitHub(fullUrl);
     return true;
 }

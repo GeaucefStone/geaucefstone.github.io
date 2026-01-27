@@ -122,3 +122,79 @@ body {
 #markdown-output blockquote + ul {
 	margin-top: 10px;
 }
+
+/* Media Elements */
+#markdown-output .markdown-image-container {
+	margin: 1.5em 0;
+	text-align: center;
+}
+
+#markdown-output .markdown-image {
+	max-width: 100%;
+	height: auto;
+	border-radius: 4px;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+#markdown-output .markdown-image-caption {
+	margin-top: 0.5em;
+	font-size: 0.9em;
+	color: #666;
+	font-style: italic;
+}
+
+#markdown-output .markdown-video-container {
+	margin: 1.5em 0;
+	text-align: center;
+}
+
+#markdown-output .markdown-video {
+	max-width: 100%;
+	max-height: 80vh;
+	border-radius: 4px;
+	box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+	background: #000; /* Black background for video area */
+}
+
+#markdown-output .markdown-video-controls {
+	margin-top: 0.5em;
+	display: flex;
+	justify-content: center;
+	gap: 10px;
+	align-items: center;
+}
+
+#markdown-output .video-play-btn {
+	padding: 5px 15px;
+	background: #3498db;
+	color: white;
+	border: none;
+	border-radius: 3px;
+	cursor: pointer;
+	font-size: 0.9em;
+}
+
+#markdown-output .video-play-btn:hover {
+	background: #2980b9;
+}
+
+#markdown-output .video-volume {
+	width: 80px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 850px) {
+	.container {
+		margin: 0 10px;
+		padding: 15px;
+		max-width: calc(100% - 20px);
+	}
+	
+	#markdown-output {
+		padding: 15px;
+	}
+	
+	#markdown-output .markdown-video {
+		max-height: 60vh;
+	}
+}

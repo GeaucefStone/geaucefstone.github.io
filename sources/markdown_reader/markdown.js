@@ -1,6 +1,6 @@
-// Markdown Parser - Pure parsing functionality only
+// Markdown Parser - Pure parsing functionality with media support
 (function() {
-    // Focus on bold, italic (underscores only), and links
+    // Focus on bold, italic (underscores only), links, images, and videos
     function processBold(text) {
         return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     }
@@ -10,11 +10,65 @@
     }
 
     function processLinks(text) {
-        return text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+        return text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    }
+
+    // Process images: ![alt text](image-url)
+    function processImages(text) {
+        return text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, function(match, alt, src) {
+            // Handle different image types with appropriate styling
+            const altText = alt || 'Image';
+            return `<div class="markdown-image-container">
+                <img src="${src}" alt="${altText}" class="markdown-image" loading="lazy">
+                ${alt ? `<div class="markdown-image-caption">${alt}</div>` : ''}
+            </div>`;
+        });
+    }
+
+    // Process videos: ![video alt](video-url) or ![VIDEO](video-url) convention
+    function processVideos(text) {
+        // Option 1: Using ![VIDEO](video-url) convention
+        return text.replace(/!\[VIDEO\]\(([^)]+)\)/g, function(match, src) {
+            const videoExt = src.split('.').pop().toLowerCase();
+            const videoType = getVideoMimeType(videoExt);
+            
+            return `<div class="markdown-video-container">
+                <video class="markdown-video" controls preload="metadata">
+                    <source src="${src}" type="${videoType}">
+                    Your browser does not support the video tag.
+                </video>
+                <div class="markdown-video-controls">
+                    <button class="video-play-btn" onclick="togglePlay(this)">Play</button>
+                    <input type="range" class="video-volume" min="0" max="1" step="0.1" value="1" onchange="setVolume(this)">
+                </div>
+            </div>`;
+        });
+    }
+
+    // Helper function to get video MIME type
+    function getVideoMimeType(extension) {
+        const mimeTypes = {
+            'mp4': 'video/mp4',
+            'webm': 'video/webm',
+            'ogg': 'video/ogg',
+            'ogv': 'video/ogg',
+            'mov': 'video/quicktime',
+            'avi': 'video/x-msvideo',
+            'wmv': 'video/x-ms-wmv',
+            'flv': 'video/x-flv',
+            'mkv': 'video/x-matroska'
+        };
+        return mimeTypes[extension] || 'video/mp4';
     }
 
     function processInlineMarkdown(text) {
-        return processLinks(processItalic(processBold(text)));
+        // Order matters: process videos first, then images, then links, then formatting
+        let processed = processVideos(text);
+        processed = processImages(processed);
+        processed = processLinks(processed);
+        processed = processItalic(processed);
+        processed = processBold(processed);
+        return processed;
     }
 
     // Function to parse markdown tables
@@ -155,7 +209,31 @@
         return result.join('\n');
     }
 
+    // Video control functions
+    window.togglePlay = function(button) {
+        const video = button.closest('.markdown-video-container').querySelector('.markdown-video');
+        if (video.paused) {
+            video.play();
+            button.textContent = 'Pause';
+        } else {
+            video.pause();
+            button.textContent = 'Play';
+        }
+    };
+
+    window.setVolume = function(slider) {
+        const video = slider.closest('.markdown-video-container').querySelector('.markdown-video');
+        video.volume = slider.value;
+    };
+
     // Export the loadMarkdownFromGitHub function for external use
+    // For switching between platforms, use these commented lines:
+    // GitHub: window.loadMarkdownFromGitHub = function(githubRawUrl) {
+    // Codeberg: window.loadMarkdownFromCodeberg = function(codebergRawUrl) {
+    // GitLab: window.loadMarkdownFromGitLab = function(gitlabRawUrl) {
+    
+    // Note: Only one platform function should be active at a time
+    // Make sure to update all references to the function name when switching
     window.loadMarkdownFromGitHub = function(githubRawUrl) {
         const output = document.getElementById('markdown-output');
         
@@ -165,7 +243,8 @@
         }
         
         // Show loading state
-        output.innerHTML = '<p style="text-align: center; color: #999;">Loading Markdown from GitHub...</p>';
+        // output.innerHTML = '<p style="text-align: center; color: #999;">Loading Markdown from Codeberg...</p>';
+        output.innerHTML = '<p style="text-align: center; color: #999;">Loading Markdown from Github...</p>';
         
         fetch(githubRawUrl)
             .then(response => {
@@ -181,9 +260,10 @@
                 console.error('Error loading Markdown:', error);
                 output.innerHTML = `
                     <div style="text-align: center; color: #d63031;">
+                        <!-- <p>Failed to load Markdown from Codeberg</p> -->
                         <p>Failed to load Markdown from GitHub</p>
                         <p><small>Error: ${error.message}</small></p>
-                        <p><a href="${githubRawUrl}" target="_blank" style="color: #7393B3;">Try opening the raw file directly</a></p>
+                        <p><a href="${githubRawUrl}" target="_blank" rel="noopener noreferrer" style="color: #7393B3;">Try opening the raw file directly</a></p>
                     </div>
                 `;
             });
