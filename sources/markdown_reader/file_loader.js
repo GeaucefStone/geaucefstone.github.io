@@ -1,4 +1,5 @@
-// File Loader for Markdown Documents with Multi-Platform Support for Legal Document Repository
+// File Loader for Markdown Documents with Auto-Failover Support
+// If primary source fails, automatically switches to backup
 const documentRegistry = {
     // Short IDs mapped to file paths (not full URLs)
     'constitution': 'contents/01B_constitution.md',
@@ -85,162 +86,458 @@ const documentRegistry = {
     'case_of_two_schools': 'contents/simulations/scenarios/the_case_of_two_schools.md',
     'groves_defense': 'contents/simulations/scenarios/the_groves_defense.md', 
     'mathematical_sentence': 'contents/simulations/scenarios/the_mathematical_sentence.md',
-    'secular_defense': 'contents/simulations/scenarios/the_secular_defense.md',
+    'secular_defense': 'contents/simulations/scenarios/the_secular_defense.md'
 };
 
-// Platform configurations
+// Platform configurations in priority order
 const PLATFORMS = {
-    github: {
-        name: 'GitHub',
-        baseUrl: 'https://raw.githubusercontent.com',
-        urlTemplate: '{baseUrl}/{username}/{repository}/{branch}/{filePath}'
-    },
     codeberg: {
         name: 'Codeberg',
         baseUrl: 'https://codeberg.org',
-        urlTemplate: '{baseUrl}/{username}/{repository}/raw/branch/{branch}/{filePath}'
+        urlTemplate: '{baseUrl}/{username}/{repository}/raw/branch/{branch}/{filePath}',
+        priority: 1
     },
-    gitlab: {
-        name: 'GitLab',
-        baseUrl: 'https://gitlab.com',
-        urlTemplate: '{baseUrl}/{username}/{repository}/-/raw/{branch}/{filePath}'
-    },
-    gitea: {
-        name: 'Gitea',
-        baseUrl: 'https://gitea.com',
-        urlTemplate: '{baseUrl}/{username}/{repository}/raw/branch/{branch}/{filePath}'
+    github: {
+        name: 'GitHub',
+        baseUrl: 'https://raw.githubusercontent.com',
+        urlTemplate: '{baseUrl}/{username}/{repository}/{branch}/{filePath}',
+        priority: 2
     }
 };
 
-// Default repository configuration
+const CORS_PROXY = 'https://corsproxy.io/?';
+
+// Repository configuration
 const REPO_CONFIG = {
-    platform: 'github', // 'github', 'codeberg', 'gitlab', 'gitea'
     username: 'GeaucefStone',
     repository: 'Secular_Democratic_Republic',
-    branch: 'main'
+    branch: 'main',
+    currentPlatform: 'codeberg', // lowercase only, start with gitHub
+    failureCount: 0,
+    maxFailuresBeforeSwitch: 3,
+    isSwitching: false,
+    healthCheckCache: {}
 };
 
-// Note: Changing platform only affects URL generation, not content loading
-// All platforms should have identical content mirrored
-
-// Generate full raw URL from short path
-function getFullRawUrl(shortPath) {
-    const platform = PLATFORMS[REPO_CONFIG.platform];
+// Generate URL for a specific platform
+function getPlatformUrl(platformKey, shortPath) {
+    const platform = PLATFORMS[platformKey];
     if (!platform) {
-        console.error('Unsupported platform:', REPO_CONFIG.platform);
+        console.error('Unsupported platform:', platformKey);
         return null;
     }
     
-    return platform.urlTemplate
+    let url = platform.urlTemplate
         .replace('{baseUrl}', platform.baseUrl)
         .replace('{username}', REPO_CONFIG.username)
         .replace('{repository}', REPO_CONFIG.repository)
         .replace('{branch}', REPO_CONFIG.branch)
         .replace('{filePath}', shortPath);
+    
+    // Use CORS proxy for Codeberg
+    if (platformKey === 'codeberg') {
+        url = CORS_PROXY + encodeURIComponent(url);
+        console.log('Using CORS proxy for Codeberg URL:', url);
+    }
+    
+    return url;
 }
 
-// Get URLs for all platforms (useful for mirroring)
+// Get next platform in priority order
+function getNextPlatform(currentPlatform) {
+    const platforms = Object.keys(PLATFORMS);
+    const currentIndex = platforms.indexOf(currentPlatform);
+    
+    // Try next platform, if none, go back to first
+    for (let i = 1; i < platforms.length; i++) {
+        const nextIndex = (currentIndex + i) % platforms.length;
+        const nextPlatform = platforms[nextIndex];
+        
+        // Skip if we already tried this platform recently
+        if (REPO_CONFIG.healthCheckCache[nextPlatform] !== false) {
+            return nextPlatform;
+        }
+    }
+    
+    return platforms[(currentIndex + 1) % platforms.length];
+}
+
+// Show notification to user
+function showNotification(message, type = 'info') {
+    const colors = {
+        info: '#3498db',
+        warning: '#f39c12',
+        error: '#e74c3c',
+        success: '#2ecc71'
+    };
+    
+    let notification = document.getElementById('loader-notification');
+    if (!notification) {
+        notification = document.createElement('div');
+        notification.id = 'loader-notification';
+        notification.style.cssText = `
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 12px 18px;
+            border-radius: 6px;
+            z-index: 10000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            max-width: 350px;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        `;
+        document.body.appendChild(notification);
+    }
+    
+    const icon = type === 'info' ? 'ℹ️' : 
+                 type === 'warning' ? '⚠️' : 
+                 type === 'error' ? '❌' : '✅';
+    
+    notification.style.background = colors[type] || colors.info;
+    notification.style.color = '#fff';
+    notification.innerHTML = `${icon} ${message}`;
+    notification.style.display = 'block';
+    
+    // Fade in
+    setTimeout(() => {
+        notification.style.opacity = '1';
+    }, 10);
+    
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        setTimeout(() => {
+            notification.style.display = 'none';
+        }, 300);
+    }, 5000);
+}
+
+// Perform platform switch
+function switchPlatform(newPlatform) {
+    if (REPO_CONFIG.isSwitching || REPO_CONFIG.currentPlatform === newPlatform) {
+        return false;
+    }
+    
+    REPO_CONFIG.isSwitching = true;
+    const oldPlatform = REPO_CONFIG.currentPlatform;
+    const oldPlatformName = PLATFORMS[oldPlatform]?.name || oldPlatform;
+    const newPlatformName = PLATFORMS[newPlatform]?.name || newPlatform;
+    
+    REPO_CONFIG.currentPlatform = newPlatform;
+    REPO_CONFIG.failureCount = 0;
+    
+    console.log(`🔄 Switched from ${oldPlatformName} to ${newPlatformName}`);
+    showNotification(`Switched to ${newPlatformName}`, 'warning');
+    
+    // Update health check cache
+    REPO_CONFIG.healthCheckCache[oldPlatform] = false;
+    REPO_CONFIG.healthCheckCache[newPlatform] = true;
+    
+    setTimeout(() => {
+        REPO_CONFIG.isSwitching = false;
+    }, 1000);
+    
+    return true;
+}
+
+// Health check for a platform (with caching)
+async function checkPlatformHealth(platformKey) {
+    // Check cache first
+    if (REPO_CONFIG.healthCheckCache[platformKey] !== undefined) {
+        console.log(`Using cached health check for ${platformKey}: ${REPO_CONFIG.healthCheckCache[platformKey] ? 'OK' : 'FAILED'}`);
+        return REPO_CONFIG.healthCheckCache[platformKey];
+    }
+    
+    const testUrl = getPlatformUrl(platformKey, 'contents/01B_constitution.md');
+    if (!testUrl) {
+        REPO_CONFIG.healthCheckCache[platformKey] = false;
+        return false;
+    }
+    
+    console.log(`Checking health of ${platformKey}...`);
+    
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        
+        const response = await fetch(testUrl, { 
+            method: 'GET',
+            mode: 'cors',
+            cache: 'no-cache',
+            headers: { 
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+            },
+            signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        const isHealthy = response.ok;
+        REPO_CONFIG.healthCheckCache[platformKey] = isHealthy;
+        
+        console.log(`${platformKey} health: ${isHealthy ? 'OK' : 'FAILED'}`);
+        return isHealthy;
+        
+    } catch (error) {
+        console.log(`Health check failed for ${platformKey}:`, error.name);
+        REPO_CONFIG.healthCheckCache[platformKey] = false;
+        return false;
+    }
+}
+
+// Initialize with health check
+async function initializeLoader() {
+    console.log('🚀 Initializing document loader with auto-failover...');
+    
+    // Clear cache
+    REPO_CONFIG.healthCheckCache = {};
+    
+    // Check all platforms
+    const platformHealth = {};
+    for (const platformKey of Object.keys(PLATFORMS)) {
+        platformHealth[platformKey] = await checkPlatformHealth(platformKey);
+    }
+    
+    // Start with first healthy platform
+    const platformsInOrder = Object.keys(PLATFORMS);
+    let selectedPlatform = REPO_CONFIG.currentPlatform;
+    
+    for (const platformKey of platformsInOrder) {
+        if (platformHealth[platformKey]) {
+            selectedPlatform = platformKey;
+            break;
+        }
+    }
+    
+    // Switch if needed
+    if (selectedPlatform !== REPO_CONFIG.currentPlatform) {
+        switchPlatform(selectedPlatform);
+    } else {
+        console.log(`✓ Using ${PLATFORMS[selectedPlatform].name} as primary source`);
+        showNotification(`Connected to ${PLATFORMS[selectedPlatform].name}`, 'success');
+    }
+    
+    // Set cache expiration (5 minutes)
+    setTimeout(() => {
+        REPO_CONFIG.healthCheckCache = {};
+        console.log('Health check cache cleared');
+    }, 5 * 60 * 1000);
+    
+    return true;
+}
+
+// Load document with auto-failover
+async function loadDocument(docId, retryCount = 0) {
+    const shortPath = documentRegistry[docId];
+    if (!shortPath) {
+        console.error('Document not found:', docId);
+        showNotification(`Document "${docId}" not found`, 'error');
+        return false;
+    }
+
+    const output = document.getElementById('markdown-output');
+    if (!output) {
+        console.error('markdown-output element not found');
+        return false;
+    }
+
+    const platform = REPO_CONFIG.currentPlatform;
+    const platformName = PLATFORMS[platform]?.name || platform;
+    const fullUrl = getPlatformUrl(platform, shortPath);
+    
+    if (!fullUrl) {
+        console.error('Failed to generate URL for platform:', platform);
+        showNotification('Failed to generate document URL', 'error');
+        return false;
+    }
+    
+    // Update URL hash
+    window.history.pushState(null, '', `#${docId}`);
+    
+    // Show loading state
+    output.innerHTML = `
+        <div style="text-align: center; padding: 40px;">
+            <p style="color: #999; margin-bottom: 10px;">Loading from ${platformName}...</p>
+            ${retryCount > 0 ? `<p style="color: #f39c12; font-size: 0.9em;">Retry attempt ${retryCount + 1}</p>` : ''}
+            <div style="width: 100px; height: 3px; background: #3498db; margin: 20px auto; border-radius: 2px; overflow: hidden;">
+                <div style="width: 60%; height: 100%; background: #2ecc71; animation: loading 1.5s infinite;"></div>
+            </div>
+            <style>
+                @keyframes loading {
+                    0% { transform: translateX(-100%); }
+                    100% { transform: translateX(200%); }
+                }
+            </style>
+        </div>
+    `;
+
+    try {
+        // Try to load the document
+        await window.loadMarkdownFromUrl(fullUrl);
+        
+        // Success - reset failure count and update cache
+        REPO_CONFIG.failureCount = 0;
+        REPO_CONFIG.healthCheckCache[platform] = true;
+        
+        console.log(`✓ Successfully loaded "${docId}" from ${platformName}`);
+        return true;
+        
+    } catch (error) {
+        console.error(`Failed to load "${docId}" from ${platformName}:`, error.message);
+        REPO_CONFIG.failureCount++;
+        
+        // Update health cache
+        REPO_CONFIG.healthCheckCache[platform] = false;
+        
+        // Check if we should switch platforms
+        if (REPO_CONFIG.failureCount >= REPO_CONFIG.maxFailuresBeforeSwitch) {
+            const nextPlatform = getNextPlatform(platform);
+            
+            if (nextPlatform && nextPlatform !== platform) {
+                showNotification(`Switching from ${platformName} due to failures`, 'warning');
+                
+                if (switchPlatform(nextPlatform)) {
+                    // Retry with new platform after short delay
+                    setTimeout(() => {
+                        loadDocument(docId, 0);
+                    }, 1000);
+                    return false;
+                }
+            }
+        }
+        
+        // Show error but don't switch yet
+        const failuresLeft = REPO_CONFIG.maxFailuresBeforeSwitch - REPO_CONFIG.failureCount;
+        
+        output.innerHTML = `
+            <div style="text-align: center; padding: 40px; color: #d63031;">
+                <p style="font-size: 1.2em; margin-bottom: 10px;">⚠️ Failed to load from ${platformName}</p>
+                <p style="margin-bottom: 20px;"><small>Error: ${error.message || 'Unknown error'}</small></p>
+                
+                ${failuresLeft > 0 ? 
+                    `<p style="color: #f39c12; margin-bottom: 20px;">
+                        Will switch to backup after ${failuresLeft} more failure${failuresLeft > 1 ? 's' : ''}
+                    </p>` : 
+                    `<p style="color: #e74c3c; margin-bottom: 20px;">
+                        Maximum failures reached. Switching platforms...
+                    </p>`
+                }
+                
+                <div style="margin-top: 30px;">
+                    <a href="${fullUrl}" target="_blank" rel="noopener noreferrer" 
+                       style="display: inline-block; padding: 8px 16px; background: #7393B3; color: white; 
+                              text-decoration: none; border-radius: 4px; margin: 5px;">
+                        Open raw file
+                    </a>
+                    <button onclick="loadDocument('${docId}')" 
+                            style="padding: 8px 16px; background: #2ecc71; color: white; 
+                                   border: none; border-radius: 4px; cursor: pointer; margin: 5px;">
+                        Retry Now
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        return false;
+    }
+}
+
+// Manual platform switch
+function setPlatform(platformKey) {
+    if (!PLATFORMS[platformKey]) {
+        console.error('Invalid platform:', platformKey);
+        showNotification(`Invalid platform: ${platformKey}`, 'error');
+        return false;
+    }
+    
+    if (REPO_CONFIG.currentPlatform === platformKey) {
+        showNotification(`Already using ${PLATFORMS[platformKey].name}`, 'info');
+        return true;
+    }
+    
+    return switchPlatform(platformKey);
+}
+
+// Get URLs for all platforms
 function getAllPlatformUrls(docId) {
     const shortPath = documentRegistry[docId];
     if (!shortPath) return null;
     
     const urls = {};
-    for (const [platformKey, platformConfig] of Object.entries(PLATFORMS)) {
-        urls[platformKey] = platformConfig.urlTemplate
-            .replace('{baseUrl}', platformConfig.baseUrl)
-            .replace('{username}', REPO_CONFIG.username)
-            .replace('{repository}', REPO_CONFIG.repository)
-            .replace('{branch}', REPO_CONFIG.branch)
-            .replace('{filePath}', shortPath);
+    for (const platformKey of Object.keys(PLATFORMS)) {
+        urls[platformKey] = getPlatformUrl(platformKey, shortPath);
     }
     return urls;
 }
 
-// Switch between platforms
-function setPlatform(platform) {
-    if (!PLATFORMS[platform]) {
-        console.error('Unsupported platform. Available:', Object.keys(PLATFORMS));
-        return false;
-    }
-    REPO_CONFIG.platform = platform;
-    console.log(`Switched to ${PLATFORMS[platform].name}`);
-    return true;
+// Get current platform status
+function getPlatformStatus() {
+    const platform = REPO_CONFIG.currentPlatform;
+    return {
+        platform: platform,
+        platformName: PLATFORMS[platform]?.name || platform,
+        failureCount: REPO_CONFIG.failureCount,
+        maxFailures: REPO_CONFIG.maxFailuresBeforeSwitch,
+        isSwitching: REPO_CONFIG.isSwitching,
+        healthCache: { ...REPO_CONFIG.healthCheckCache }
+    };
 }
 
-// Load a specific document by ID
-function loadDocument(docId) {
-    const shortPath = documentRegistry[docId];
-    if (!shortPath) {
-        console.error('Document not found:', docId);
-        return false;
-    }
-
-    const fullUrl = getFullRawUrl(shortPath);
-    const output = document.getElementById('markdown-output');
-    
-    // Show loading state with platform info
-    output.innerHTML = `<p style="text-align: center; color: #999;">
-        Loading document from ${PLATFORMS[REPO_CONFIG.platform].name}...
-    </p>`;
-    
-    // Update URL without page reload
-    window.history.pushState(null, '', `#${docId}`);
-    
-    // Use your existing markdown loader
-    // Platform-specific function calls in loadDocument():
-    // For GitHub: loadMarkdownFromGitHub(fullUrl);
-    // For Codeberg: loadMarkdownFromCodeberg(fullUrl);
-    // For GitLab: loadMarkdownFromGitLab(fullUrl);
-    loadMarkdownFromGitHub(fullUrl);
-    return true;
-}
-
-// Get all available document IDs
+// Compatibility functions
 function getAvailableDocuments() {
     return Object.keys(documentRegistry);
 }
 
-// Get full document URL by ID
 function getDocumentUrl(docId) {
     const shortPath = documentRegistry[docId];
-    return shortPath ? getFullRawUrl(shortPath) : null;
+    return shortPath ? getPlatformUrl(REPO_CONFIG.currentPlatform, shortPath) : null;
 }
 
-// Get short path by ID
 function getDocumentShortPath(docId) {
     return documentRegistry[docId];
 }
 
-// Update repository configuration
 function updateRepoConfig(newConfig) {
     Object.assign(REPO_CONFIG, newConfig);
     console.log('Repository configuration updated:', REPO_CONFIG);
+    showNotification('Configuration updated', 'info');
 }
 
-// Get current platform info
-function getCurrentPlatform() {
+function getCurrentPlatformInfo() {
     return {
         ...REPO_CONFIG,
-        platformName: PLATFORMS[REPO_CONFIG.platform].name
+        platformName: PLATFORMS[REPO_CONFIG.currentPlatform]?.name || REPO_CONFIG.currentPlatform
     };
 }
 
-// Get document by category (useful for UI organization)
 function getDocumentsByCategory() {
     const categories = {
         'Base System': [
             'constitution', 'legal_dictionary', 'department_structure', 
-            'agency_structure', 'tax_structure'
+            'agency_structure', 'tax_structure', 'law_making_process', 'governing_system'
+        ],
+        'Penal Code': [
+            'criminal_cowardice', 'defense_and_liability', 'homicide'
+        ],
+        'Acts and Bills': [
+            'secure_systems_act', 'adult_freedom_guarantor_act', 'universtal_sanitary_infrastructure_act',
+            'hate_crime_enhancement_act', 'hate_symbol_evidence_act', 'social_compliance_act',
+            'animal_testing_act', 'military_age_cognition_act', 'conversion_therapy_ban', 'responsible_carry'
         ],
         'Legal Framework': [
-            'poetic_justice', 'proxicide_doctrine', 'tiered_self_defense_framework',
-            'defense_and_transferred_liability', 'the_last_landlord', 'housing',
+            'poetic_justice', 'proxicide_doctrine', 'privacy_and_surveilance', 'private_prisons',
+            'tiered_self_defense_framework', 'defense_and_transferred_liability', 'the_last_landlord', 'housing',
             'what_is_a_theocrat', 'immigration_and_secularism', 'bodily_autonomy_and_public_health',
             'womens_autonomy', 'coerced_marriage', 'no_fault_divorce', 'romeo_and_juliet',
             'safe_emancipation_of_minors', 'citizens_branch', 'workers_branch',
             'scientific_branch', 'surgeon_court', 'historian_branch', 'historian_court',
             'covert_ops', 'conspiracy_framework', 'financial_conflicts', 'substance_over_form',
-            'poisoned_chalice_provision', 'anti_corruption_architecture', 'civil_war_crimes',
+            'proportionate_fines', 'poisoned_chalice_provision', 'anti_corruption_architecture', 'civil_war_crimes',
             'retained_sovereignty'
         ],
         'Case Studies': [
@@ -253,7 +550,7 @@ function getDocumentsByCategory() {
             'holocaust_denial'
         ],
         'Scenarios': [
-            'atlas_dilemma', 'landlords_gambit', 'nathaniels_dilemma',
+            'anti_transphobic_showdown', 'atlas_dilemma', 'landlords_gambit', 'nathaniels_dilemma',
             'quarantine_dilemma', 'sterling_dilemma', 'case_of_two_schools',
             'groves_defense', 'mathematical_sentence', 'secular_defense'
         ]
@@ -262,32 +559,49 @@ function getDocumentsByCategory() {
     return categories;
 }
 
-// Initialize document loader
-function initDocumentLoader() {
-    // Load document from URL hash if present
-    const initialDoc = window.location.hash.substring(1);
-    if (initialDoc && documentRegistry[initialDoc]) {
-        loadDocument(initialDoc);
-    }
-    
-    return true;
+// Force refresh health checks
+function refreshHealthChecks() {
+    REPO_CONFIG.healthCheckCache = {};
+    showNotification('Refreshing platform health checks...', 'info');
+    return initializeLoader();
 }
 
-// Export for use in other modules (if needed)
+// Initialize document loader
+async function initDocumentLoader() {
+    try {
+        await initializeLoader();
+        
+        const initialDoc = window.location.hash.substring(1);
+        if (initialDoc && documentRegistry[initialDoc]) {
+            console.log(`Loading initial document from URL hash: ${initialDoc}`);
+            setTimeout(() => {
+                loadDocument(initialDoc);
+            }, 500); // Small delay to ensure everything is ready
+        } else {
+            console.log('No initial document in URL hash');
+        }
+        
+        return true;
+    } catch (error) {
+        console.error('Failed to initialize document loader:', error);
+        showNotification('Failed to initialize document loader', 'error');
+        return false;
+    }
+}
+
+// Export
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         documentRegistry,
         PLATFORMS,
         REPO_CONFIG,
         loadDocument,
-        getAvailableDocuments,
-        getDocumentUrl,
-        getDocumentShortPath,
-        updateRepoConfig,
         setPlatform,
-        getCurrentPlatform,
+        getCurrentPlatformInfo,
         getAllPlatformUrls,
         getDocumentsByCategory,
+        getPlatformStatus,
+        refreshHealthChecks,
         initDocumentLoader
     };
 }
