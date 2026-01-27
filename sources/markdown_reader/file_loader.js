@@ -1,272 +1,5 @@
-[file name]: file_loader.js
-[file content begin]
 // File Loader for Markdown Documents with Auto-Failover Support
 // If primary source fails, automatically switches to backup
-
-// Initialize enhanced notification system
-function initNotificationSystem() {
-    // Check if already initialized
-    if (document.getElementById('notification-container')) return;
-    
-    const styleElement = document.createElement('style');
-    styleElement.textContent = `
-        .notification-container {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            z-index: 10000;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            pointer-events: none;
-        }
-        
-        .notification {
-            pointer-events: auto;
-            padding: 12px 18px;
-            border-radius: 6px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            font-family: Arial, sans-serif;
-            font-size: 14px;
-            max-width: 350px;
-            min-width: 200px;
-            opacity: 0;
-            transform: translateX(20px);
-            transition: opacity 0.3s ease, transform 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            color: white;
-        }
-        
-        .notification.show {
-            opacity: 1;
-            transform: translateX(0);
-        }
-        
-        .notification.info {
-            background: #3498db;
-            border-left: 4px solid #2980b9;
-        }
-        
-        .notification.success {
-            background: #2ecc71;
-            border-left: 4px solid #27ae60;
-        }
-        
-        .notification.warning {
-            background: #f39c12;
-            border-left: 4px solid #d35400;
-        }
-        
-        .notification.error {
-            background: #e74c3c;
-            border-left: 4px solid #c0392b;
-        }
-        
-        .notification-icon {
-            font-size: 16px;
-        }
-        
-        .notification-content {
-            flex: 1;
-        }
-        
-        .notification-close {
-            background: none;
-            border: none;
-            color: white;
-            cursor: pointer;
-            font-size: 16px;
-            padding: 0;
-            margin: 0;
-            opacity: 0.7;
-            transition: opacity 0.2s ease;
-        }
-        
-        .notification-close:hover {
-            opacity: 1;
-        }
-        
-        .notification-progress {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: rgba(255,255,255,0.3);
-            border-radius: 0 0 6px 6px;
-            overflow: hidden;
-        }
-        
-        .notification-progress-bar {
-            height: 100%;
-            background: rgba(255,255,255,0.7);
-            width: 100%;
-            transform: translateX(-100%);
-            transition: transform 5s linear;
-        }
-        
-        .notification.show .notification-progress-bar {
-            transform: translateX(0);
-        }
-    `;
-    document.head.appendChild(styleElement);
-    
-    const container = document.createElement('div');
-    container.id = 'notification-container';
-    container.className = 'notification-container';
-    document.body.appendChild(container);
-}
-
-// Enhanced showNotification function
-function showNotification(message, type = 'info', duration = 5000) {
-    // Initialize if needed
-    if (!document.getElementById('notification-container')) {
-        initNotificationSystem();
-    }
-    
-    const container = document.getElementById('notification-container');
-    
-    // Limit to 5 notifications
-    const notifications = container.querySelectorAll('.notification');
-    if (notifications.length >= 5) {
-        const oldest = notifications[0];
-        removeNotification(oldest);
-    }
-    
-    // Create notification
-    const notification = document.createElement('div');
-    notification.className = `notification ${type}`;
-    
-    const icons = {
-        info: 'ℹ️',
-        success: '✅',
-        warning: '⚠️',
-        error: '❌'
-    };
-    
-    const icon = icons[type] || icons.info;
-    
-    notification.innerHTML = `
-        <span class="notification-icon">${icon}</span>
-        <span class="notification-content">${message}</span>
-        <button class="notification-close" title="Close">×</button>
-        <div class="notification-progress">
-            <div class="notification-progress-bar"></div>
-        </div>
-    `;
-    
-    container.appendChild(notification);
-    
-    // Animate in
-    setTimeout(() => {
-        notification.classList.add('show');
-    }, 10);
-    
-    // Close button
-    const closeBtn = notification.querySelector('.notification-close');
-    closeBtn.addEventListener('click', () => {
-        removeNotification(notification);
-    });
-    
-    // Auto-hide
-    let hideTimeout;
-    if (duration > 0) {
-        hideTimeout = setTimeout(() => {
-            removeNotification(notification);
-        }, duration);
-        
-        // Pause on hover
-        notification.addEventListener('mouseenter', () => {
-            if (hideTimeout) {
-                clearTimeout(hideTimeout);
-                hideTimeout = null;
-                notification.querySelector('.notification-progress-bar').style.animationPlayState = 'paused';
-            }
-        });
-        
-        notification.addEventListener('mouseleave', () => {
-            if (!hideTimeout) {
-                hideTimeout = setTimeout(() => {
-                    removeNotification(notification);
-                }, duration);
-                notification.querySelector('.notification-progress-bar').style.animationPlayState = 'running';
-            }
-        });
-    }
-    
-    return {
-        element: notification,
-        close: () => removeNotification(notification),
-        update: (newMessage, newType) => updateNotification(notification, newMessage, newType)
-    };
-}
-
-function removeNotification(notification) {
-    if (!notification || !notification.parentNode) return;
-    
-    notification.classList.remove('show');
-    
-    setTimeout(() => {
-        if (notification.parentNode) {
-            notification.parentNode.removeChild(notification);
-        }
-    }, 300);
-}
-
-function updateNotification(notification, newMessage, newType) {
-    if (!notification) return;
-    
-    const content = notification.querySelector('.notification-content');
-    const icon = notification.querySelector('.notification-icon');
-    
-    if (content) content.textContent = newMessage;
-    
-    if (newType) {
-        notification.className = notification.className.replace(/info|success|warning|error/g, '');
-        notification.classList.add(newType);
-        
-        const icons = {
-            info: 'ℹ️',
-            success: '✅',
-            warning: '⚠️',
-            error: '❌'
-        };
-        if (icon) icon.textContent = icons[newType] || icons.info;
-    }
-    
-    return notification;
-}
-
-// Convenience functions
-function showInfo(message, duration) {
-    return showNotification(message, 'info', duration);
-}
-
-function showSuccess(message, duration) {
-    return showNotification(message, 'success', duration);
-}
-
-function showWarning(message, duration) {
-    return showNotification(message, 'warning', duration);
-}
-
-function showError(message, duration) {
-    return showNotification(message, 'error', duration);
-}
-
-function clearAllNotifications() {
-    const container = document.getElementById('notification-container');
-    if (!container) return;
-    
-    const notifications = container.querySelectorAll('.notification');
-    notifications.forEach(notification => {
-        removeNotification(notification);
-    });
-}
-
-// Document registry
 const documentRegistry = {
     // Short IDs mapped to file paths (not full URLs)
     'constitution': 'contents/01B_constitution.md',
@@ -367,7 +100,7 @@ const PLATFORMS = {
     codeberg: {
         name: 'Codeberg',
         baseUrl: 'https://codeberg.org',
-        urlTemplate: '{baseUrl}/{username}/{repository}/raw/branch/{branch}/{filePath}',
+        urlTemplate: '{baseUrl}/{username}/{repository}/raw/commit/{branch}/{filePath}',
         priority: 2
     }
 };
@@ -379,7 +112,7 @@ const REPO_CONFIG = {
     username: 'GeaucefStone',
     repository: 'Secular_Democratic_Republic',
     branch: 'main',
-    currentPlatform: 'github', // FIXED: lowercase 'github'
+    currentPlatform: 'Github', // Start with GitHub
     failureCount: 0,
     maxFailuresBeforeSwitch: 3,
     isSwitching: false,
@@ -391,7 +124,6 @@ function getPlatformUrl(platformKey, shortPath) {
     const platform = PLATFORMS[platformKey];
     if (!platform) {
         console.error('Unsupported platform:', platformKey);
-        showError(`Unsupported platform: ${platformKey}`);
         return null;
     }
     
@@ -405,7 +137,7 @@ function getPlatformUrl(platformKey, shortPath) {
     // Use CORS proxy for Codeberg
     if (platformKey === 'codeberg') {
         url = CORS_PROXY + encodeURIComponent(url);
-        console.log('Using CORS proxy for Codeberg URL');
+        console.log('Using CORS proxy for Codeberg URL:', url);
     }
     
     return url;
@@ -430,6 +162,60 @@ function getNextPlatform(currentPlatform) {
     return platforms[(currentIndex + 1) % platforms.length];
 }
 
+// Show notification to user
+function showNotification(message, type = 'info') {
+    const colors = {
+        info: '#3498db',
+        warning: '#f39c12',
+        error: '#e74c3c',
+        success: '#2ecc71'
+    };
+    
+    let notification = document.getElementById('loader-notification');
+    if (!notification) {
+        notification = document.createElement('div');
+        notification.id = 'loader-notification';
+        notification.style.cssText = `
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 12px 18px;
+            border-radius: 6px;
+            z-index: 10000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            max-width: 350px;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        `;
+        document.body.appendChild(notification);
+    }
+    
+    const icon = type === 'info' ? 'ℹ️' : 
+                 type === 'warning' ? '⚠️' : 
+                 type === 'error' ? '❌' : '✅';
+    
+    notification.style.background = colors[type] || colors.info;
+    notification.style.color = '#fff';
+    notification.innerHTML = `${icon} ${message}`;
+    notification.style.display = 'block';
+    
+    // Fade in
+    setTimeout(() => {
+        notification.style.opacity = '1';
+    }, 10);
+    
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        setTimeout(() => {
+            notification.style.display = 'none';
+        }, 300);
+    }, 5000);
+}
+
 // Perform platform switch
 function switchPlatform(newPlatform) {
     if (REPO_CONFIG.isSwitching || REPO_CONFIG.currentPlatform === newPlatform) {
@@ -445,7 +231,7 @@ function switchPlatform(newPlatform) {
     REPO_CONFIG.failureCount = 0;
     
     console.log(`🔄 Switched from ${oldPlatformName} to ${newPlatformName}`);
-    showWarning(`Switched to ${newPlatformName}`);
+    showNotification(`Switched to ${newPlatformName}`, 'warning');
     
     // Update health check cache
     REPO_CONFIG.healthCheckCache[oldPlatform] = false;
@@ -507,7 +293,6 @@ async function checkPlatformHealth(platformKey) {
 // Initialize with health check
 async function initializeLoader() {
     console.log('🚀 Initializing document loader with auto-failover...');
-    showInfo('Initializing document loader...');
     
     // Clear cache
     REPO_CONFIG.healthCheckCache = {};
@@ -534,7 +319,7 @@ async function initializeLoader() {
         switchPlatform(selectedPlatform);
     } else {
         console.log(`✓ Using ${PLATFORMS[selectedPlatform].name} as primary source`);
-        showSuccess(`Connected to ${PLATFORMS[selectedPlatform].name}`);
+        showNotification(`Connected to ${PLATFORMS[selectedPlatform].name}`, 'success');
     }
     
     // Set cache expiration (5 minutes)
@@ -551,14 +336,13 @@ async function loadDocument(docId, retryCount = 0) {
     const shortPath = documentRegistry[docId];
     if (!shortPath) {
         console.error('Document not found:', docId);
-        showError(`Document "${docId}" not found`);
+        showNotification(`Document "${docId}" not found`, 'error');
         return false;
     }
 
     const output = document.getElementById('markdown-output');
     if (!output) {
         console.error('markdown-output element not found');
-        showError('Document output element not found');
         return false;
     }
 
@@ -568,7 +352,7 @@ async function loadDocument(docId, retryCount = 0) {
     
     if (!fullUrl) {
         console.error('Failed to generate URL for platform:', platform);
-        showError('Failed to generate document URL');
+        showNotification('Failed to generate document URL', 'error');
         return false;
     }
     
@@ -601,7 +385,6 @@ async function loadDocument(docId, retryCount = 0) {
         REPO_CONFIG.healthCheckCache[platform] = true;
         
         console.log(`✓ Successfully loaded "${docId}" from ${platformName}`);
-        showSuccess(`Loaded "${docId}" from ${platformName}`);
         return true;
         
     } catch (error) {
@@ -616,7 +399,7 @@ async function loadDocument(docId, retryCount = 0) {
             const nextPlatform = getNextPlatform(platform);
             
             if (nextPlatform && nextPlatform !== platform) {
-                showWarning(`Switching from ${platformName} due to failures`);
+                showNotification(`Switching from ${platformName} due to failures`, 'warning');
                 
                 if (switchPlatform(nextPlatform)) {
                     // Retry with new platform after short delay
@@ -668,12 +451,12 @@ async function loadDocument(docId, retryCount = 0) {
 function setPlatform(platformKey) {
     if (!PLATFORMS[platformKey]) {
         console.error('Invalid platform:', platformKey);
-        showError(`Invalid platform: ${platformKey}`);
+        showNotification(`Invalid platform: ${platformKey}`, 'error');
         return false;
     }
     
     if (REPO_CONFIG.currentPlatform === platformKey) {
-        showInfo(`Already using ${PLATFORMS[platformKey].name}`);
+        showNotification(`Already using ${PLATFORMS[platformKey].name}`, 'info');
         return true;
     }
     
@@ -722,7 +505,7 @@ function getDocumentShortPath(docId) {
 function updateRepoConfig(newConfig) {
     Object.assign(REPO_CONFIG, newConfig);
     console.log('Repository configuration updated:', REPO_CONFIG);
-    showInfo('Configuration updated');
+    showNotification('Configuration updated', 'info');
 }
 
 function getCurrentPlatformInfo() {
@@ -779,16 +562,13 @@ function getDocumentsByCategory() {
 // Force refresh health checks
 function refreshHealthChecks() {
     REPO_CONFIG.healthCheckCache = {};
-    showInfo('Refreshing platform health checks...');
+    showNotification('Refreshing platform health checks...', 'info');
     return initializeLoader();
 }
 
 // Initialize document loader
 async function initDocumentLoader() {
     try {
-        // Initialize notification system
-        initNotificationSystem();
-        
         await initializeLoader();
         
         const initialDoc = window.location.hash.substring(1);
@@ -804,7 +584,7 @@ async function initDocumentLoader() {
         return true;
     } catch (error) {
         console.error('Failed to initialize document loader:', error);
-        showError('Failed to initialize document loader');
+        showNotification('Failed to initialize document loader', 'error');
         return false;
     }
 }
@@ -822,13 +602,6 @@ if (typeof module !== 'undefined' && module.exports) {
         getDocumentsByCategory,
         getPlatformStatus,
         refreshHealthChecks,
-        initDocumentLoader,
-        showNotification,
-        showInfo,
-        showSuccess,
-        showWarning,
-        showError,
-        clearAllNotifications
+        initDocumentLoader
     };
 }
-[file content end]
