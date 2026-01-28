@@ -117,7 +117,7 @@ const REPO_CONFIG = {
     username: 'GeaucefStone',
     repository: 'Secular_Democratic_Republic',
     branch: 'main',
-    currentPlatform: 'codeberg', // Changed to codeberg first
+    currentPlatform: 'github', // Github comes first
     failureCount: 0,
     maxFailuresBeforeSwitch: 2,
     isSwitching: false,
