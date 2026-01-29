@@ -1,4 +1,4 @@
-// Github-first, Codeberg-fallback file loader
+// GitHub-first, Codeberg-fallback WITHOUT CORS for GitHub
 const documentRegistry = {
     // Constitution
     'constitution': 'contents/01B_constitution.md',
@@ -88,31 +88,34 @@ const documentRegistry = {
     'secular_defense': 'contents/simulations/scenarios/the_secular_defense.md'
 };
 
-// SOURCES in priority order
-const SOURCES = [
-    {
-        name: 'GitHub Raw',
+// SOURCE CONFIGURATION
+const SOURCES = {
+    github: {
+        name: 'GitHub',
         getUrl: (filePath) => `https://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/main/${filePath}`,
-        needsProxy: false
+        useCors: false,  // GitHub doesn't need CORS
+        priority: 1
     },
-    {
-        name: 'jsDelivr CDN',
+    jsdelivr: {
+        name: 'jsDelivr',
         getUrl: (filePath) => `https://cdn.jsdelivr.net/gh/GeaucefStone/Secular_Democratic_Republic@main/${filePath}`,
-        needsProxy: false
+        useCors: false,  // CDN doesn't need CORS
+        priority: 2
     },
-    {
-        name: 'Codeberg Raw',
+    codeberg: {
+        name: 'Codeberg',
         getUrl: (filePath) => `https://codeberg.org/GeaucefStone/Secular_Democratic_Republic/raw/branch/main/${filePath}`,
-        needsProxy: true
+        useCors: true,   // Codeberg needs CORS
+        priority: 3
     }
-];
+};
 
-// CORS proxy for Codeberg (works better than corsproxy.io)
-const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+// CORS proxy ONLY for Codeberg
+const CORS_PROXY = 'https://corsproxy.io/?';
 
-// Track which source we're using
-let currentSource = 0; // Start with GitHub
+let currentSource = 'github'; // Start with GitHub
 
+// SIMPLE, DIRECT LOAD FUNCTION
 async function loadDocument(docId) {
     const filePath = documentRegistry[docId];
     if (!filePath) {
@@ -130,121 +133,89 @@ async function loadDocument(docId) {
     // Update URL
     window.location.hash = docId;
     
-    // Show loading with source info
-    const source = SOURCES[currentSource];
+    // Show loading
     output.innerHTML = `
         <div style="text-align: center; padding: 40px;">
             <p>Loading <strong>${docId}</strong>...</p>
-            <p><small>Source: ${source.name}</small></p>
+            <p><small>Source: ${SOURCES[currentSource].name}</small></p>
             <div style="width: 100px; height: 3px; background: #3498db; margin: 20px auto;"></div>
         </div>
     `;
     
-    // Try current source first
-    let result = await tryLoadSource(currentSource, filePath);
+    // Try current source
+    let success = await tryLoadFromSource(currentSource, filePath);
     
-    // If failed, try other sources
-    if (!result.success) {
-        for (let i = 0; i < SOURCES.length; i++) {
-            if (i === currentSource) continue;
+    // If failed, try other sources in priority order
+    if (!success) {
+        const sourcesInOrder = Object.keys(SOURCES).sort((a, b) => SOURCES[a].priority - SOURCES[b].priority);
+        
+        for (const sourceKey of sourcesInOrder) {
+            if (sourceKey === currentSource) continue;
             
+            console.log(`Trying fallback: ${SOURCES[sourceKey].name}`);
             output.innerHTML = `
                 <div style="text-align: center; padding: 40px;">
-                    <p>${source.name} failed, trying ${SOURCES[i].name}...</p>
+                    <p>${SOURCES[currentSource].name} failed, trying ${SOURCES[sourceKey].name}...</p>
                     <div style="width: 100px; height: 3px; background: #f39c12; margin: 20px auto;"></div>
                 </div>
             `;
             
-            result = await tryLoadSource(i, filePath);
-            if (result.success) {
-                currentSource = i; // Switch to this source
+            success = await tryLoadFromSource(sourceKey, filePath);
+            if (success) {
+                currentSource = sourceKey; // Switch to working source
                 break;
             }
         }
     }
     
-    if (result.success) {
-        // Parse and display
-        if (window.parseMarkdown) {
-            output.innerHTML = window.parseMarkdown(result.text);
-        } else {
-            output.innerHTML = `<pre>${result.text}</pre>`;
-        }
-        
-        // Show source indicator
-        showSourceIndicator(SOURCES[currentSource].name);
-        return true;
-    } else {
-        // All sources failed
-        output.innerHTML = `
-            <div style="text-align: center; padding: 40px; color: #d63031;">
-                <h3>⚠️ All Sources Failed</h3>
-                <p>Could not load "${docId}" from any source.</p>
-                
-                <div style="margin-top: 20px;">
-                    <button onclick="loadDocument('${docId}')" 
-                            style="padding: 10px 20px; background: #3498db; color: white; 
-                                   border: none; border-radius: 5px; cursor: pointer; margin: 5px;">
-                        Retry
-                    </button>
-                    
-                    ${SOURCES.map((source, index) => `
-                        <button onclick="forceSource(${index}, '${docId}')" 
-                                style="padding: 10px 20px; background: ${index === 0 ? '#2ecc71' : index === 1 ? '#9b59b6' : '#e74c3c'}; 
-                                       color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px;">
-                            Force: ${source.name}
-                        </button>
-                    `).join('')}
-                </div>
-                
-                <div style="margin-top: 30px; font-size: 0.9em; color: #666;">
-                    <p>Direct links to try:</p>
-                    <ul style="text-align: left; display: inline-block;">
-                        ${SOURCES.map(source => {
-                            const url = source.getUrl(filePath);
-                            return `<li><a href="${source.needsProxy ? CORS_PROXY + encodeURIComponent(url) : url}" 
-                                           target="_blank" style="color: #7393B3;">
-                                ${source.name}
-                            </a></li>`;
-                        }).join('')}
-                    </ul>
-                </div>
-            </div>
-        `;
-        return false;
-    }
+    return success;
 }
 
-async function tryLoadSource(sourceIndex, filePath) {
-    const source = SOURCES[sourceIndex];
+// Try loading from a specific source
+async function tryLoadFromSource(sourceKey, filePath) {
+    const source = SOURCES[sourceKey];
     let url = source.getUrl(filePath);
     
-    // Add CORS proxy if needed
-    if (source.needsProxy) {
+    // ONLY apply CORS proxy to Codeberg
+    if (source.useCors) {
         url = CORS_PROXY + encodeURIComponent(url);
+        console.log(`Using CORS proxy for ${source.name}: ${url.substring(0, 100)}...`);
     }
     
-    console.log(`Trying ${source.name}: ${url}`);
+    console.log(`Loading from ${source.name}: ${url}`);
     
     try {
         const response = await fetch(url, {
-            cache: 'no-store',
+            cache: 'no-cache',
             headers: {
                 'Cache-Control': 'no-cache'
             }
         });
         
         if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
         const text = await response.text();
+        const output = document.getElementById('markdown-output');
+        
+        // Use your markdown parser
+        if (window.parseMarkdown) {
+            output.innerHTML = window.parseMarkdown(text);
+        } else if (window.loadMarkdownFromUrl) {
+            // Fallback to URL loader
+            await window.loadMarkdownFromUrl(url);
+        } else {
+            output.innerHTML = `<pre>${text}</pre>`;
+        }
+        
         console.log(`✅ Success from ${source.name}`);
-        return { success: true, text: text, source: source.name };
+        showSourceIndicator(source.name);
+        return true;
         
     } catch (error) {
         console.error(`❌ Failed from ${source.name}:`, error.message);
-        return { success: false, error: error.message };
+        return false;
     }
 }
 
@@ -256,11 +227,11 @@ function showError(message) {
 }
 
 function showSourceIndicator(sourceName) {
-    // Remove existing indicator
+    // Remove existing
     const existing = document.getElementById('source-indicator');
     if (existing) existing.remove();
     
-    // Create new indicator
+    // Create new
     const indicator = document.createElement('div');
     indicator.id = 'source-indicator';
     indicator.style.cssText = `
@@ -274,35 +245,85 @@ function showSourceIndicator(sourceName) {
         font-size: 12px;
         z-index: 10000;
         backdrop-filter: blur(5px);
-        border-left: 3px solid #7393B3;
+        border-left: 3px solid ${sourceName === 'GitHub' ? '#2ecc71' : sourceName === 'jsDelivr' ? '#9b59b6' : '#e74c3c'};
     `;
     
     indicator.innerHTML = `<strong>Source:</strong> ${sourceName}`;
-    indicator.title = 'Current document source';
+    indicator.title = `${sourceName} - Click to test all sources`;
+    indicator.onclick = testAllSources;
     
     document.body.appendChild(indicator);
-}
-
-// Force a specific source
-async function forceSource(sourceIndex, docId) {
-    currentSource = sourceIndex;
-    await loadDocument(docId);
 }
 
 // Test all sources
 async function testAllSources() {
     console.log('=== Testing all sources ===');
     const testPath = 'contents/01B_constitution.md';
+    const results = [];
     
-    for (let i = 0; i < SOURCES.length; i++) {
-        const result = await tryLoadSource(i, testPath);
-        console.log(`${SOURCES[i].name}: ${result.success ? '✅' : '❌'}`);
+    for (const [key, source] of Object.entries(SOURCES)) {
+        let url = source.getUrl(testPath);
+        if (source.useCors) {
+            url = CORS_PROXY + encodeURIComponent(url);
+        }
+        
+        try {
+            const start = Date.now();
+            const response = await fetch(url, { method: 'HEAD' });
+            const time = Date.now() - start;
+            
+            results.push({
+                source: source.name,
+                status: response.ok ? '✅ OK' : `❌ HTTP ${response.status}`,
+                time: `${time}ms`,
+                needsCors: source.useCors ? 'Yes' : 'No'
+            });
+        } catch (error) {
+            results.push({
+                source: source.name,
+                status: `❌ ${error.name}`,
+                time: 'N/A',
+                needsCors: source.useCors ? 'Yes' : 'No'
+            });
+        }
     }
+    
+    // Show results
+    const output = document.getElementById('markdown-output');
+    let html = '<h3>Source Test Results</h3><table style="width: 100%; border-collapse: collapse; margin: 20px 0;">';
+    html += '<tr><th>Source</th><th>Status</th><th>Time</th><th>CORS</th></tr>';
+    
+    for (const result of results) {
+        html += `<tr>
+            <td>${result.source}</td>
+            <td>${result.status}</td>
+            <td>${result.time}</td>
+            <td>${result.needsCors}</td>
+        </tr>`;
+    }
+    
+    html += '</table>';
+    html += `<button onclick="loadDocument('constitution')" style="padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer;">
+        Back to Constitution
+    </button>`;
+    
+    output.innerHTML = html;
+}
+
+// Force a specific source
+async function forceSource(sourceKey, docId) {
+    if (!SOURCES[sourceKey]) {
+        console.error('Invalid source:', sourceKey);
+        return;
+    }
+    
+    currentSource = sourceKey;
+    await loadDocument(docId);
 }
 
 // Initialize
 function initDocumentLoader() {
-    console.log('Initializing GitHub-first document loader');
+    console.log('GitHub-first loader initialized');
     
     // Load from URL hash
     const hash = window.location.hash.substring(1);
@@ -320,9 +341,6 @@ function initDocumentLoader() {
             loadDocument(docId);
         });
     });
-    
-    // Test sources on startup
-    setTimeout(testAllSources, 2000);
 }
 
 // Export
