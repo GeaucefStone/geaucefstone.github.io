@@ -1,4 +1,4 @@
-// GitHub-first, Codeberg-fallback WITHOUT CORS for GitHub
+// file_loader_github.js - GitHub ONLY version
 const documentRegistry = {
     // Constitution
     'constitution': 'contents/01B_constitution.md',
@@ -88,39 +88,14 @@ const documentRegistry = {
     'secular_defense': 'contents/simulations/scenarios/the_secular_defense.md'
 };
 
-// SOURCE CONFIGURATION
-const SOURCES = {
-    github: {
-        name: 'GitHub',
-        getUrl: (filePath) => `https://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/main/${filePath}`,
-        useCors: false,  // GitHub doesn't need CORS
-        priority: 1
-    },
-    jsdelivr: {
-        name: 'jsDelivr',
-        getUrl: (filePath) => `https://cdn.jsdelivr.net/gh/GeaucefStone/Secular_Democratic_Republic@main/${filePath}`,
-        useCors: false,  // CDN doesn't need CORS
-        priority: 2
-    },
-    codeberg: {
-        name: 'Codeberg',
-        getUrl: (filePath) => `https://codeberg.org/GeaucefStone/Secular_Democratic_Republic/raw/branch/main/${filePath}`,
-        useCors: true,   // Codeberg needs CORS
-        priority: 3
-    }
-};
-
-// CORS proxy ONLY for Codeberg
-const CORS_PROXY = 'https://corsproxy.io/?';
-
-let currentSource = 'github'; // Start with GitHub
-
-// SIMPLE, DIRECT LOAD FUNCTION
+// PURE GITHUB LOADER - NO CODEBERG, NO CORS, NO FALLBACKS
 async function loadDocument(docId) {
+    console.log(`GitHub Loader: Loading ${docId}`);
+    
     const filePath = documentRegistry[docId];
     if (!filePath) {
         console.error('Document not found:', docId);
-        showError(`Document "${docId}" not found`);
+        showError(`Document "${docId}" not found in registry`);
         return false;
     }
     
@@ -137,85 +112,135 @@ async function loadDocument(docId) {
     output.innerHTML = `
         <div style="text-align: center; padding: 40px;">
             <p>Loading <strong>${docId}</strong>...</p>
-            <p><small>Source: ${SOURCES[currentSource].name}</small></p>
-            <div style="width: 100px; height: 3px; background: #3498db; margin: 20px auto;"></div>
+            <p><small>Source: GitHub</small></p>
+            <div style="width: 100px; height: 3px; background: #24292e; margin: 20px auto;"></div>
         </div>
     `;
     
-    // Try current source
-    let success = await tryLoadFromSource(currentSource, filePath);
-    
-    // If failed, try other sources in priority order
-    if (!success) {
-        const sourcesInOrder = Object.keys(SOURCES).sort((a, b) => SOURCES[a].priority - SOURCES[b].priority);
-        
-        for (const sourceKey of sourcesInOrder) {
-            if (sourceKey === currentSource) continue;
-            
-            console.log(`Trying fallback: ${SOURCES[sourceKey].name}`);
-            output.innerHTML = `
-                <div style="text-align: center; padding: 40px;">
-                    <p>${SOURCES[currentSource].name} failed, trying ${SOURCES[sourceKey].name}...</p>
-                    <div style="width: 100px; height: 3px; background: #f39c12; margin: 20px auto;"></div>
-                </div>
-            `;
-            
-            success = await tryLoadFromSource(sourceKey, filePath);
-            if (success) {
-                currentSource = sourceKey; // Switch to working source
-                break;
-            }
-        }
-    }
-    
-    return success;
-}
-
-// Try loading from a specific source
-async function tryLoadFromSource(sourceKey, filePath) {
-    const source = SOURCES[sourceKey];
-    let url = source.getUrl(filePath);
-    
-    // ONLY apply CORS proxy to Codeberg
-    if (source.useCors) {
-        url = CORS_PROXY + encodeURIComponent(url);
-        console.log(`Using CORS proxy for ${source.name}: ${url.substring(0, 100)}...`);
-    }
-    
-    console.log(`Loading from ${source.name}: ${url}`);
+    // GitHub Raw URL - THE ONLY SOURCE
+    const githubUrl = `https://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/main/${filePath}`;
+    console.log('GitHub URL:', githubUrl);
     
     try {
-        const response = await fetch(url, {
-            cache: 'no-cache',
-            headers: {
-                'Cache-Control': 'no-cache'
-            }
-        });
+        // Simple fetch - no CORS issues with GitHub Raw
+        const response = await fetch(githubUrl);
         
         if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            throw new Error(`GitHub returned HTTP ${response.status}: ${response.statusText}`);
         }
         
         const text = await response.text();
-        const output = document.getElementById('markdown-output');
+        console.log(`✅ Loaded ${text.length} characters from GitHub`);
         
-        // Use your markdown parser
+        // Parse markdown
         if (window.parseMarkdown) {
             output.innerHTML = window.parseMarkdown(text);
-        } else if (window.loadMarkdownFromUrl) {
-            // Fallback to URL loader
-            await window.loadMarkdownFromUrl(url);
         } else {
             output.innerHTML = `<pre>${text}</pre>`;
         }
         
-        console.log(`✅ Success from ${source.name}`);
-        showSourceIndicator(source.name);
         return true;
         
     } catch (error) {
-        console.error(`❌ Failed from ${source.name}:`, error.message);
+        console.error('❌ GitHub load failed:', error);
+        
+        // GitHub-specific error
+        output.innerHTML = `
+            <div style="text-align: center; padding: 40px; color: #d63031;">
+                <h3>⚠️ GitHub Load Failed</h3>
+                <p>Could not load "${docId}" from GitHub.</p>
+                <p><strong>Error:</strong> ${error.message}</p>
+                <p><strong>File:</strong> ${filePath}</p>
+                
+                <div style="margin-top: 30px; background: #f8f9fa; padding: 20px; border-radius: 5px; text-align: left;">
+                    <h4>Possible issues:</h4>
+                    <ol>
+                        <li>The file doesn't exist at: <code>${filePath}</code></li>
+                        <li>GitHub is down or rate-limiting</li>
+                        <li>Network connectivity issues</li>
+                        <li>Browser extension blocking the request</li>
+                    </ol>
+                    
+                    <h4>Direct links:</h4>
+                    <ul>
+                        <li><a href="${githubUrl}" target="_blank">GitHub Raw File</a></li>
+                        <li><a href="https://github.com/GeaucefStone/Secular_Democratic_Republic/blob/main/${filePath}" target="_blank">GitHub Repository View</a></li>
+                    </ul>
+                </div>
+                
+                <div style="margin-top: 30px;">
+                    <button onclick="loadDocument('${docId}')" 
+                            style="padding: 10px 20px; background: #3498db; color: white; 
+                                   border: none; border-radius: 5px; cursor: pointer; margin: 5px;">
+                        Try Again
+                    </button>
+                    <button onclick="testGitHubConnection()" 
+                            style="padding: 10px 20px; background: #f39c12; color: white; 
+                                   border: none; border-radius: 5px; cursor: pointer; margin: 5px;">
+                        Test GitHub Connection
+                    </button>
+                </div>
+                
+                <div style="margin-top: 20px; font-size: 0.9em; color: #666;">
+                    <p>This is a GitHub-only loader. If GitHub is blocked in your region, 
+                    you need to use the Codeberg version of this site.</p>
+                </div>
+            </div>
+        `;
+        
         return false;
+    }
+}
+
+// Test GitHub connection
+async function testGitHubConnection() {
+    const testUrl = 'https://raw.githubusercontent.com/GeaucefStone/Secular_Democratic_Republic/main/contents/01B_constitution.md';
+    const output = document.getElementById('markdown-output');
+    
+    output.innerHTML = `
+        <div style="text-align: center; padding: 40px;">
+            <p>Testing GitHub connection...</p>
+            <div style="width: 100px; height: 3px; background: #f39c12; margin: 20px auto;"></div>
+        </div>
+    `;
+    
+    try {
+        const start = Date.now();
+        const response = await fetch(testUrl);
+        const time = Date.now() - start;
+        
+        if (response.ok) {
+            output.innerHTML = `
+                <div style="text-align: center; padding: 40px; color: #2ecc71;">
+                    <h3>✅ GitHub Connection Test</h3>
+                    <p><strong>Status:</strong> Connected (${time}ms)</p>
+                    <p><strong>HTTP:</strong> ${response.status} ${response.statusText}</p>
+                    <button onclick="loadDocument('constitution')" 
+                            style="padding: 10px 20px; background: #3498db; color: white; 
+                                   border: none; border-radius: 5px; cursor: pointer; margin-top: 20px;">
+                        Load Constitution
+                    </button>
+                </div>
+            `;
+        } else {
+            output.innerHTML = `
+                <div style="text-align: center; padding: 40px; color: #d63031;">
+                    <h3>❌ GitHub Connection Test</h3>
+                    <p><strong>Status:</strong> Failed (${time}ms)</p>
+                    <p><strong>HTTP:</strong> ${response.status} ${response.statusText}</p>
+                    <p>GitHub is reachable but returned an error.</p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        output.innerHTML = `
+            <div style="text-align: center; padding: 40px; color: #d63031;">
+                <h3>❌ GitHub Connection Test</h3>
+                <p><strong>Error:</strong> ${error.name}</p>
+                <p><strong>Message:</strong> ${error.message}</p>
+                <p>GitHub is not reachable from your network.</p>
+            </div>
+        `;
     }
 }
 
@@ -226,127 +251,65 @@ function showError(message) {
     }
 }
 
-function showSourceIndicator(sourceName) {
-    // Remove existing
-    const existing = document.getElementById('source-indicator');
-    if (existing) existing.remove();
-    
-    // Create new
-    const indicator = document.createElement('div');
-    indicator.id = 'source-indicator';
-    indicator.style.cssText = `
-        position: fixed;
-        bottom: 10px;
-        right: 10px;
-        background: rgba(45, 55, 72, 0.9);
-        color: white;
-        padding: 8px 12px;
-        border-radius: 5px;
-        font-size: 12px;
-        z-index: 10000;
-        backdrop-filter: blur(5px);
-        border-left: 3px solid ${sourceName === 'GitHub' ? '#2ecc71' : sourceName === 'jsDelivr' ? '#9b59b6' : '#e74c3c'};
-    `;
-    
-    indicator.innerHTML = `<strong>Source:</strong> ${sourceName}`;
-    indicator.title = `${sourceName} - Click to test all sources`;
-    indicator.onclick = testAllSources;
-    
-    document.body.appendChild(indicator);
+// Get all document IDs (for debugging)
+function getAllDocumentIds() {
+    return Object.keys(documentRegistry);
 }
 
-// Test all sources
-async function testAllSources() {
-    console.log('=== Testing all sources ===');
-    const testPath = 'contents/01B_constitution.md';
-    const results = [];
-    
-    for (const [key, source] of Object.entries(SOURCES)) {
-        let url = source.getUrl(testPath);
-        if (source.useCors) {
-            url = CORS_PROXY + encodeURIComponent(url);
-        }
-        
-        try {
-            const start = Date.now();
-            const response = await fetch(url, { method: 'HEAD' });
-            const time = Date.now() - start;
-            
-            results.push({
-                source: source.name,
-                status: response.ok ? '✅ OK' : `❌ HTTP ${response.status}`,
-                time: `${time}ms`,
-                needsCors: source.useCors ? 'Yes' : 'No'
-            });
-        } catch (error) {
-            results.push({
-                source: source.name,
-                status: `❌ ${error.name}`,
-                time: 'N/A',
-                needsCors: source.useCors ? 'Yes' : 'No'
-            });
-        }
-    }
-    
-    // Show results
-    const output = document.getElementById('markdown-output');
-    let html = '<h3>Source Test Results</h3><table style="width: 100%; border-collapse: collapse; margin: 20px 0;">';
-    html += '<tr><th>Source</th><th>Status</th><th>Time</th><th>CORS</th></tr>';
-    
-    for (const result of results) {
-        html += `<tr>
-            <td>${result.source}</td>
-            <td>${result.status}</td>
-            <td>${result.time}</td>
-            <td>${result.needsCors}</td>
-        </tr>`;
-    }
-    
-    html += '</table>';
-    html += `<button onclick="loadDocument('constitution')" style="padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer;">
-        Back to Constitution
-    </button>`;
-    
-    output.innerHTML = html;
+// Get document count
+function getDocumentCount() {
+    return Object.keys(documentRegistry).length;
 }
 
-// Force a specific source
-async function forceSource(sourceKey, docId) {
-    if (!SOURCES[sourceKey]) {
-        console.error('Invalid source:', sourceKey);
-        return;
-    }
-    
-    currentSource = sourceKey;
-    await loadDocument(docId);
+// Check if document exists
+function documentExists(docId) {
+    return !!documentRegistry[docId];
 }
 
 // Initialize
 function initDocumentLoader() {
-    console.log('GitHub-first loader initialized');
+    console.log('GitHub-only document loader initialized');
+    console.log(`Registry contains ${getDocumentCount()} documents`);
     
-    // Load from URL hash
+    // Load document from URL hash
     const hash = window.location.hash.substring(1);
     if (hash && documentRegistry[hash]) {
+        console.log(`Loading from hash: ${hash}`);
         setTimeout(() => loadDocument(hash), 100);
+    } else if (hash) {
+        console.warn(`Hash "${hash}" not found in registry`);
     }
     
     // Set up sidebar navigation
     document.querySelectorAll('.sidebar-menu a').forEach(link => {
         link.addEventListener('click', function(e) {
-            if (this.classList.contains('dropdown-toggle')) return;
+            // Skip dropdown toggles
+            if (this.classList.contains('dropdown-toggle')) {
+                return;
+            }
             
             e.preventDefault();
             const docId = this.getAttribute('href').substring(1);
-            loadDocument(docId);
+            
+            if (documentRegistry[docId]) {
+                loadDocument(docId);
+            } else {
+                console.error(`Document "${docId}" not found in registry`);
+                showError(`Document "${docId}" not found. Check console for available documents.`);
+            }
         });
     });
+    
+    // Add debug info
+    console.log('Available documents:', getAllDocumentIds());
 }
 
 // Export
 window.loadDocument = loadDocument;
-window.forceSource = forceSource;
-window.testAllSources = testAllSources;
+window.testGitHubConnection = testGitHubConnection;
+window.getAllDocumentIds = getAllDocumentIds;
+window.getDocumentCount = getDocumentCount;
+window.documentExists = documentExists;
 window.initDocumentLoader = initDocumentLoader;
 
 // Auto-initialize
